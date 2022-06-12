@@ -28,53 +28,7 @@ pip install -r requirements.txt
 
 ### 插件配置
 
-* 疫情消息分发
 
-> [antigen_bot/plugins/message_forwarder.py](./antigen_bot/plugins/message_forwarder.py)
-
-
-```json
-{
-    "admin_ids": ["admin-id-1", "admin-id-2", "..."],
-    "room_ids": ["room-id-1", "room-id-2", "..."],
-    "room_regex": ["^某某小区(\\d+)号楼组群$"]
-}
-```
-
-* 群接龙 & 快团团
-
-> [antigen_bot/plugins/committee.py](./antigen_bot/plugins/committee.py)
-
-此插件对接[居委会项目](https://github.com/ShanghaiITVolunteer/JuWeiHui)，主要完成小区自动化文件处理等RPA类型工作。如果没有自己小区的对应功能，非常欢迎发起PR到该项目中丰富其功能。
-
-* 关键字回复
-
-> [antigen_bot/plugins/keyword_reply.py](./antigen_bot/plugins/keyword_reply.py)
-
-```json
-[
-    {
-        "keyword": "hello",
-        "convs": [
-            {
-                "name": "contact-name",
-                "id": "contact-id",
-                "type": "Contact",
-                "no": "0"
-            },
-            {
-                "name": "room-topic",
-                "id": "room-id",
-                "type": "Room",
-                "no": "1"
-            }
-        ],
-        "msgs": [
-            "world"
-        ]
-    }
-]
-```
 
 * 抗原信息检测
 
