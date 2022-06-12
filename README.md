@@ -133,24 +133,3 @@ sequenceDiagram
     c-->>-b: 发送抗原图片
     b->>-a: 自动识别并提交抗原结果
 ```
-
-## 还有一些想说话的话
-
-还有一些想说的话。这个bot的目的不是用冷冰冰的机器来取代基层工作者和人民之间的联系。与之相反，我们旨在将基层工作者从重复、繁杂、琐碎的工作中解放出来，让他们更有动力去深入了解人民的高层次需求，以建立更温暖更友善的联系，并更好的服务于人民，建立鱼水情。我相信，只有增强这种联系，我们上海才能共同努力，一起克服这如洪水猛兽般的疫情！
-
-## 社区对接沟通群
-
-此群主要提供给有意愿将机器人应用在自己小区中的开发者，非诚勿扰，我们只想利用有限的时间做好有意义的事情。
-
-![](./asset/room-qrcode.jpg)
-
-## Wechaty Service Provider
-
-非常感谢Padlocal作者[好大](https://github.com/padlocal)提供TOKNE服务支持。
-
-## 项目顾问
-
-
-[Huan](https://github.com/huan) [(李卓桓)](http://linkedin.com/in/zixia), Tencent TVP of Chatbot.
-
-[![Profile of Huan LI (李卓桓) on StackOverflow](https://stackoverflow.com/users/flair/1123955.png)](https://stackoverflow.com/users/1123955/huan)
