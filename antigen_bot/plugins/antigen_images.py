@@ -1,4 +1,6 @@
-"""basic ding-dong bot for the wechaty plugin"""
+"""
+wechaty interface for AntigenImage AI classfiles
+"""
 import os
 from typing import List, Optional
 

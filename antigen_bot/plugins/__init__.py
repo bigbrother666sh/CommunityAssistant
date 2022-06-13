@@ -1,9 +1,7 @@
-from .message_forwarder import MessageForwarderPlugin
+from .qun_assistant import QunAssistantPlugin
 from .on_call_notice import OnCallNoticePlugin
-from .watch_room_topic import WatchRoomTopicPlugin
 
 __all__ = [
-    MessageForwarderPlugin,
-    WatchRoomTopicPlugin,
+    QunAssistantPlugin,
     OnCallNoticePlugin,
 ]

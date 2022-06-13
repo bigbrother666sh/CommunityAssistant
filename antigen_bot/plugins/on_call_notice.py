@@ -2,10 +2,11 @@ import json
 import os
 import re
 import time
-from typing import (
-    Dict, Optional, Any
-)
+import xlrd
+import random
+from typing import Optional
 from wechaty import (
+    Wechaty,
     FileBox,
     MessageType,
     WechatyPlugin,
@@ -14,6 +15,7 @@ from wechaty import (
 )
 from wechaty_puppet import get_logger
 from datetime import datetime
+from antigen_bot.message_controller import message_controller
 
 
 class OnCallNoticePlugin(WechatyPlugin):
@@ -24,44 +26,121 @@ class OnCallNoticePlugin(WechatyPlugin):
         "[核酸提醒](https://github.com/ShanghaiITVolunteer/AntigenWechatBot/issues/25#issuecomment-1104823018)"等需求场景
         3. 配置文件：.wechaty/on_call_notice.json(存储keyword已经对应的回复文本（必须）、群聊名称pre_fix(必须）、回复媒体（存贮在media/）以及延迟时间）
     """
-    def __init__(self, options: Optional[WechatyPluginOptions] = None, config_file: str = '.wechaty/on_call_notice.json'):
+    def __init__(self, options: Optional[WechatyPluginOptions] = None, configs: str = 'CA_configs'):
         super().__init__(options)
         # 1. init the config file
-        self.config_file = config_file
+        self.config_url = configs
+        self.config_files = os.listdir(self.config_url)
 
         # 2. save the log info into <plugin_name>.log file
-        log_file = os.path.join('.wechaty', self.name + '.log')
+        self.cache_dir = f'./.{self.name}'
+        self.file_cache_dir = f'{self.cache_dir}/file'
+        os.makedirs(self.file_cache_dir, exist_ok=True)
+
+        log_file = os.path.join(self.cache_dir, 'log.log')
         self.logger = get_logger(self.name, log_file)
 
-        #self.dynamic_plugin = dynamic_plugin
+        # 3. check and load metadata
+        if self._file_check() is False:
+            raise RuntimeError('On_call_Notice plugin needs above config_files, pls add and try again')
+
+        with open(os.path.join(self.config_url, 'directors.json'), 'r', encoding='utf-8') as f:
+            self.directors = json.load(f)
+
+        if len(self.directors) == 0:
+            self.logger.warning('there must be at least one director, pls retry')
+            raise RuntimeError('CA director.json not valid, pls refer to above info and try again')
 
         self.data = self._load_message_forwarder_configuration()
+        if not self.data:
+            raise RuntimeError('CA on_call_notice.xlsx not valid, pls refer to above info and try again')
+
+        if "authorize.json" in self.config_files:
+            with open(os.path.join(self.config_url, 'authorize.json'), 'r', encoding='utf-8') as f:
+                self.auth = json.load(f)
+        else:
+            date = datetime.today().strftime('%Y-%m-%d')
+            self.auth = {key: {date: []} for key in self.data.keys()}
+
         self.listen_to_forward = {}   #记录转发状态
         self.last_loop = {}    #记录上一轮发送群名
 
-    def _load_message_forwarder_configuration(self) -> Dict[str, Any]:
-        """load the message forwarder configuration
+    async def init_plugin(self, wechaty: Wechaty) -> None:
+        message_controller.init_plugins(wechaty)
+        return await super().init_plugin(wechaty)
 
-        Returns:
-            Dict[str, Any]: the message forwarder configuration
+    def _file_check(self) -> bool:
+        """check the config file"""
+        if "directors.json" not in self.config_files:
+            self.logger.warning(f'config file url:/{self.config_url} does not have directors.json!')
+            return False
+
+        if "on_call_notice.xlsx" not in self.config_files:
+            self.logger.warning(f'config file url:/{self.config_url} does not have on_call_notice.xlsx!')
+            return False
+
+    def _load_message_forwarder_configuration(self) -> dict:
+        """load the config data"""
+        config_file = os.path.join(self.config_url, 'on_call_notice.xlsx')
+        data = xlrd.open_workbook(config_file)
+
+        result = {}
+        for name in data.sheet_names():
+            table = data.sheet_by_name(name)
+            nrows = table.nrows
+            cols = table.ncols
+            if nrows < 3:
+                continue
+
+            if cols < 4:
+                self.logger.warning('on_call_notice.xlsx format error: information not sufficient')
+                return {}
+
+            if table.cell_value(0,0) != "pre_fix":
+                self.logger.warning('on_call_notice.xlsx format error: first line first column not pre_fix')
+                return {}
+
+            if table.cell_value(1,0) != "keywords":
+                self.logger.warning('on_call_notice.xlsx format error: may miss keywords')
+                return {}
+
+            result[name] = {"pre_fix": table.cell_value(0, 1)} if table.cell_value(0, 1) else None
+
+            for i in range(2, nrows):
+                result[name][table.cell_value(i, 0)] = {}
+                result[name][table.cell_value(i, 0)]["reply"] = table.cell_value(i,1) if table.cell_value(i,1) else None
+                result[name][table.cell_value(i, 0)]["media"] = table.cell_value(i, 2) if table.cell_value(i, 2) else None
+                result[name][table.cell_value(i, 0)]["hold"] = int(table.cell_value(i, 3)) if table.cell_value(i, 3) else '0'
+
+        return result
+
+    async def director_message(self, msg: Message):
         """
-        os.makedirs(os.path.dirname(self.config_file), exist_ok=True)
+        Director Module
+        """
+        # 1. check the heartbeat of WechatyPlugin
+        if msg.text() == "ding":
+            await msg.say('dong -- OnCallNoticePlugin')
+            return
+        # 2. help menu
+        if msg.text() == 'help':
+            await msg.say("OnCallNoticePlugin Director Code: \n"
+                          "ding -- check heartbeat \n"
+                          "reload configs --- reload on_call_notice.xlsx \n")
+            return
+        # 3.functions
+        if msg.text() == 'reload configs':
+            data = self._load_message_forwarder_configuration()
+            if data is None:
+                await msg.say("on_call_notice.xlsx not valid, I'll keep the old set. no change happened")
+            else:
+                self.data = data
+                await msg.say("on_call_notice configs has been updated")
+            return
 
-        if not os.path.exists(self.config_file):
-            self.logger.error('configuration file not found: %s', self.config_file)
-            with open(self.config_file, 'w', encoding='utf-8') as f:
-                json.dump({}, f, ensure_ascii=False)
-            return {}
-        
-        with open(self.config_file, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-        date = datetime.today().strftime('%Y-%m-%d')
-        for id in data.keys():
-            if "auth" not in data[id].keys():
-                data[id]["auth"] = {date: []}
-        return data
+        await msg.say("send help to me to check what you can do")
 
-    async def forward_message(self, id, msg: Message, regex):
+    async def forward_message(self, _id, msg: Message, regex):
         """forward the message to the target conversations
 
         Args:
@@ -69,12 +148,13 @@ class OnCallNoticePlugin(WechatyPlugin):
             regex (the compile object): the conversation filter
         """
         rooms = await self.bot.Room.find_all()
+        random.shuffle(rooms)
 
-        self.last_loop[id] = []
+        self.last_loop[_id] = []
 
         if msg.type() in [MessageType.MESSAGE_TYPE_IMAGE, MessageType.MESSAGE_TYPE_VIDEO, MessageType.MESSAGE_TYPE_ATTACHMENT]:
             file_box = await msg.to_file_box()
-            file_path = '.wechaty/' + file_box.name
+            file_path = self.file_cache_dir
             await file_box.to_file(file_path, overwrite=True)
             file_box = FileBox.from_file(file_path)
 
@@ -83,7 +163,7 @@ class OnCallNoticePlugin(WechatyPlugin):
                 topic = room.payload.topic
                 if regex.search(topic) and file_box:
                     await room.say(file_box)
-                    self.last_loop[id].append(topic)
+                    self.last_loop[_id].append(topic)
 
         if msg.type() in [MessageType.MESSAGE_TYPE_TEXT, MessageType.MESSAGE_TYPE_URL, MessageType.MESSAGE_TYPE_MINI_PROGRAM]:
             for room in rooms:
@@ -91,10 +171,11 @@ class OnCallNoticePlugin(WechatyPlugin):
                 topic = room.payload.topic
                 if regex.search(topic):
                     await msg.forward(room)
-                    self.last_loop[id].append(topic)
+                    self.last_loop[_id].append(topic)
 
         self.logger.info('=================finish to On_call_Notice=================\n\n')
 
+    @message_controller.may_disable_message
     async def on_message(self, msg: Message) -> None:
         if msg.is_self() or msg.talker().contact_id == "weixin":
             return
@@ -102,19 +183,28 @@ class OnCallNoticePlugin(WechatyPlugin):
         talker = msg.talker()
         date = datetime.today().strftime('%Y-%m-%d')
 
-        if (talker.contact_id in self.data.keys()) and ("撤销" in msg.text()) and (await msg.mention_self()):
-            if msg.room().room_id in self.data[talker.contact_id]["auth"].get(date, []):
-                self.data[talker.contact_id]["auth"][date].remove(msg.room().room_id)
+        # 2. check if is director
+        if talker.contact_id in self.directors:
+            await self.director_message(msg)
+            return
+
+        if (talker.contact_id in self.auth.keys()) and ("撤销" in msg.text()) and (await msg.mention_self()):
+            if msg.room().room_id in self.auth[talker.contact_id].get(date, []):
+                self.auth[talker.contact_id][date].remove(msg.room().room_id)
+                with open(os.path.join(self.config_url, 'authorize.json'), 'w', encoding='utf-8') as f:
+                    json.dump(self.auth, f)
                 await msg.say("本群转发授权已经撤销，如需转发，请管理人员再次授权")
             else:
                 await msg.room().say("本群未开启授权，如需授权，请在被授权群中@我并发送 授权", [talker.contact_id])
             return
 
-        if (talker.contact_id in self.data.keys()) and ("授权" in msg.text()) and (await msg.mention_self()):
-            if date in self.data[talker.contact_id]["auth"].keys():
-                self.data[talker.contact_id]["auth"][date].append(msg.room().room_id)
+        if (talker.contact_id in self.auth.keys()) and ("授权" in msg.text()) and (await msg.mention_self()):
+            if date in self.auth[talker.contact_id].keys():
+                self.auth[talker.contact_id][date].append(msg.room().room_id)
             else:
-                self.data[talker.contact_id]["auth"][date] = [msg.room().room_id]
+                self.auth[talker.contact_id][date] = [msg.room().room_id]
+            with open(os.path.join(self.config_url, 'authorize.json'), 'w', encoding='utf-8') as f:
+                json.dump(self.auth, f)
             await msg.room().say("本群授权已开启，如需撤销，请在本群中@我并发送 撤销", [talker.contact_id])
             await msg.say("本群已授权开启转发，授权期仅限今日（至凌晨12点）。转发请按如下格式： @我 楼号 内容（均用空格隔开）")
             return
@@ -123,11 +213,12 @@ class OnCallNoticePlugin(WechatyPlugin):
         if talker.contact_id in self.listen_to_forward.keys():
             #群消息要先鉴权
             if msg.room():
-                if self.listen_to_forward[talker.contact_id][2] not in self.data[self.listen_to_forward[talker.contact_id][1]]["auth"].get(date, []):
+                if self.listen_to_forward[talker.contact_id][2] not in self.auth[self.listen_to_forward[talker.contact_id][1]].get(date, []):
                     del self.listen_to_forward[talker.contact_id]
                     await msg.say("呵呵，你的权限刚刚被取消了哦~")
                     return
 
+            message_controller.disable_all_plugins(msg)
             await self.forward_message(talker.contact_id, msg, self.listen_to_forward[talker.contact_id][0])
             if msg.room():
                 if self.last_loop.get(talker.contact_id, []):
@@ -140,6 +231,17 @@ class OnCallNoticePlugin(WechatyPlugin):
                 else:
                     await msg.say("呵呵，未找到可通知的群，请重试")
             del self.listen_to_forward[talker.contact_id]
+            return
+
+        # 管理员群发功能
+        if talker.contact_id in self.data.keys() and not msg.room() and "群转发" in msg.text():
+            pre_fix = self.data[talker.contact_id]['pre_fix']
+            if not pre_fix:
+                await msg.say("还未配置所属小区，通知未触发")
+                return
+
+            regex = re.compile(r"{0}.*".format(pre_fix))
+            self.listen_to_forward[talker.contact_id] = [regex, talker.contact_id, talker.contact_id]
             return
 
         # 3. 判断是否来自工作群或者指定联系人的消息（优先判定群）
@@ -164,8 +266,8 @@ class OnCallNoticePlugin(WechatyPlugin):
         if id in self.data.keys():
             token = id
         else:
-            for key, value in self.data.items():
-                if id in value["auth"].get(date, []):
+            for key, value in self.auth.items():
+                if id in value.get(date, []):
                     token = key
                     break
 
@@ -186,7 +288,11 @@ class OnCallNoticePlugin(WechatyPlugin):
                 await talker.ready()
                 self.logger.info('message: %s', msg)
 
-                if "hold" in spec[word].keys():
+                if not spec[word]['reply']:
+                    await msg.say("kewords【{}】未设定转发文本".format(word))
+                    return
+
+                if spec[word]["hold"] != 0:
                     await msg.say("收到，等待{0}秒后，按预设【{1}】进行发送".format(spec[word]["hold"], word))
                     time.sleep(spec[word]["hold"])
                 else:
@@ -194,7 +300,7 @@ class OnCallNoticePlugin(WechatyPlugin):
 
                 reply = spec[word].get("reply")
 
-                if "media" in spec[word].keys():
+                if spec[word]["media"]:
                     file_box = FileBox.from_file("media/" + spec[word]["media"])
                 words.remove(word)
 
@@ -240,6 +346,7 @@ class OnCallNoticePlugin(WechatyPlugin):
             return
 
         rooms = await self.bot.Room.find_all()
+        random.shuffle(rooms)
 
         self.last_loop[talker.contact_id] = []
         for room in rooms:
@@ -251,7 +358,7 @@ class OnCallNoticePlugin(WechatyPlugin):
                     await room.say(file_box)
                 self.last_loop[talker.contact_id].append(topic)
 
-        self.logger.info('=================finish to On_call_Notice=================\n\n')
+        self.logger.info('=================finish to On_call_Notice=================\n')
 
         if msg.room():
             if self.last_loop.get(talker.contact_id, []):

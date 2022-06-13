@@ -11,4 +11,4 @@ python-dotenv
 pdfkit
 asq
 typed-argument-parser
-# git+https://github.com/wj-Mcat/juweihui.git
+xlrd==1.2.0
