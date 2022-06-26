@@ -15,7 +15,7 @@ from wechaty import (
 from wechaty_puppet import get_logger
 from datetime import datetime
 from antigen_bot.message_controller import message_controller
-
+from utils.DFAFilter import DFAFilter
 
 class QunAssitantPlugin(WechatyPlugin):
     """
@@ -78,6 +78,11 @@ class QunAssitantPlugin(WechatyPlugin):
                 self.qun_open_seq = json.load(f)
         else:
             self.qun_open_seq = {key:{} for key in self.room_dict.keys()}
+
+        self.gfw = DFAFilter()
+        self.gfw.parse()
+
+        self.logger.info(f'QunAssisstant plugin init success.')
 
     async def init_plugin(self, wechaty: Wechaty) -> None:
         message_controller.init_plugins(wechaty)
@@ -197,30 +202,14 @@ class QunAssitantPlugin(WechatyPlugin):
         if room.room_id not in self.room_dict.keys():
             return
 
-        owner = await room.owner()
+        text = text.strip().replace('\n', '，')
 
-            if room.room_id not in tuan:
-                tuan.append(room.room_id)
-                topic = await room.topic()
-                tuan_detail[room.room_id] = {'topic': topic, "tuanzhang": owner.name, "announce": None, "faq": {},
-                                             "track": {}, "members": []}
-                # tuan_track[room.room_id] = {'ordered': [], "payed": [], "delivered": [], "received": [], "confirmed": [], "withdraw": [], "returns": [], "refund": []}
-                tuan_media[room.room_id] = {"buffer": []}
-                tuan_minipro[room.room_id] = {}
-                tuan_order[room.room_id] = {"记一下": []}
+        if self.gfw.filter(text):
+            self.logger.info(f'{text} is filtered, for the reason of {self.gfw.filter(text)}')
+            await room.say('请勿发表不当言论，谢谢配合', [talker.contact_id])
+            return
 
-            if owner.contact_id not in tuanzhang:
-                tuanzhang.append(owner.contact_id)
-
-            # 暂时python-wechaty 在这里有bug
-            if owner.is_friend():
-                await owner.say(pre_words['welcome_tuanzhang'])
-            else:
-                await xiaoyan.Friendship.add(owner, pre_words['invite_tuanzhang'])
-
-            path = os.getcwd() + f'\material\{room.room_id}'
-            if not os.path.exists(path):
-                os.mkdir(path)
+        # 5. todo:smart FAQ
 
                 # 处理来自团长的消息
             if talker.contact_id == owner.contact_id:
