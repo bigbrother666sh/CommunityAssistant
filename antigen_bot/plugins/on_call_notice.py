@@ -110,7 +110,7 @@ class OnCallNoticePlugin(WechatyPlugin):
                 result[name][table.cell_value(i, 0)] = {}
                 result[name][table.cell_value(i, 0)]["reply"] = table.cell_value(i,1) if table.cell_value(i,1) else None
                 result[name][table.cell_value(i, 0)]["media"] = table.cell_value(i, 2) if table.cell_value(i, 2) else None
-                result[name][table.cell_value(i, 0)]["hold"] = int(table.cell_value(i, 3)) if table.cell_value(i, 3) else '0'
+                result[name][table.cell_value(i, 0)]["hold"] = int(table.cell_value(i, 3)) if table.cell_value(i, 3) else 0
 
         return result
 
