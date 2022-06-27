@@ -169,10 +169,11 @@ class QunAssistantPlugin(WechatyPlugin):
         text = await msg.mention_text()
 
         if talker.contact_id in self.qunzhu:
+            message_controller.disable_all_plugins(msg)
             if owner.contact_id != talker.contact_id:
                 await room.say("您不是该群群主，出于隐私保护，您无法在本群中启动我的功能")
                 return
-            message_controller.disable_all_plugins(msg)
+
             if text == '觉醒':
                 self.room_dict[room.room_id] = talker.contact_id
                 with open(os.path.join(self.config_url, 'room_dict.json'), 'w', encoding='utf-8') as f:
@@ -193,10 +194,15 @@ class QunAssistantPlugin(WechatyPlugin):
             return
 
         if talker.contact_id in self.qun_open_seq:
+            text = self.qun_open_seq[talker.contact_id][0]
+            room = self.qun_open_seq[talker.contact_id][1]
+            talkerid = self.qun_open_seq[talker.contact_id][2]
             if text == '结束':
+                await room.say(f'您之前的提问：{text}，群主已经回答了，答案见上，请您查收~', [talkerid])
                 del self.qun_open_seq[talker.contact_id]
             else:
-                self.qun_faq[self.qun_open_seq[talker.contact_id][0]][self.qun_open_seq[talker.contact_id][1]].append(msg)
+                self.qun_faq[room.room_id][text].append(msg)
+                await self.forward_message(msg, room)
             return
 
         if room.room_id not in self.room_dict:
@@ -215,6 +221,7 @@ class QunAssistantPlugin(WechatyPlugin):
             await room.say('请勿发表不当言论，谢谢配合', [talker.contact_id])
             return
 
+        self.logger.info(f'{talker.name} in {topic} asked: {text}')
         # 5. smart FAQ
         answer = []
         if self.qun_faq[room.room_id]:
@@ -222,6 +229,7 @@ class QunAssistantPlugin(WechatyPlugin):
             similatiry = self.sim(similatiry_list)
             for i in range(len(similatiry)-1, -1, -1):
                 if similatiry[i]['similarity'] > 0.9:
+                    self.logger.info(f"found matched text: {similatiry[i]['text2']}")
                     answer = self.qun_faq[room.room_id][similatiry[i]['text2']]
                     break
 
@@ -233,32 +241,12 @@ class QunAssistantPlugin(WechatyPlugin):
                 await owner.say('答案支持文本、图片、视频、文件、小程序等多种格式，多条答案请依次回复，并在最后说“结束”')
             except Exception as e:
                 self.logger.error(e)
-            self.qun_open_seq[owner.contact_id] = [room.room_id, text]
+            self.qun_open_seq[owner.contact_id] = [text, room, talker.contact_id]
             self.qun_faq[room.room_id][text] = []
         else:
             await room.say(f'对于您说的“{text}”，群主之前有回答，请参考如下', [talker.contact_id])
             for _answer in answer:
-                if _answer.type() in [MessageType.MESSAGE_TYPE_IMAGE, MessageType.MESSAGE_TYPE_VIDEO,
-                                  MessageType.MESSAGE_TYPE_ATTACHMENT]:
-                    file_box = await _answer.to_file_box()
-                    saved_file = os.path.join(self.file_cache_dir, file_box.name)
-                    await file_box.to_file(saved_file, overwrite=True)
-                    file_box = FileBox.from_file(saved_file)
-                    await room.say(file_box)
-
-                if _answer.type() in [MessageType.MESSAGE_TYPE_TEXT, MessageType.MESSAGE_TYPE_URL,
-                                  MessageType.MESSAGE_TYPE_MINI_PROGRAM, MessageType.MESSAGE_TYPE_EMOTICON]:
-                    await _answer.forward(room)
-
-                if msg.type() == MessageType.MESSAGE_TYPE_AUDIO:
-                    file_box = await _answer.to_file_box()
-                    saved_file = os.path.join(self.file_cache_dir, file_box.name)
-                    await file_box.to_file(saved_file, overwrite=True)
-                    new_audio_file = FileBox.from_file(saved_file)
-                    new_audio_file.metadata = {
-                        "voiceLength": 2000
-                    }
-                    await room.say(new_audio_file)
+                await self.forward_message(_answer, room)
 
         # 最后检查下talker的群昵称状态，并更新下talker在bot的备注
         alias = await room.alias(talker)
@@ -349,3 +337,32 @@ class QunAssistantPlugin(WechatyPlugin):
         if changer.contact_id != owner.contact_id:
             await changer.say('非群主不能更改群名称，请勿捣乱，要不咱俩杠到底')
             await room.topic(old_topic)
+
+    async def forward_message(self, msg: Message, room: Room) -> None:
+        """forward the message to the target conversations
+
+        Args:
+            msg (Message): the message to forward
+            regex (the compile object): the conversation filter
+        """
+        if msg.type() in [MessageType.MESSAGE_TYPE_IMAGE, MessageType.MESSAGE_TYPE_VIDEO, MessageType.MESSAGE_TYPE_ATTACHMENT, MessageType.MESSAGE_TYPE_EMOTICON]:
+            file_box = await msg.to_file_box()
+            saved_file = os.path.join(self.file_cache_dir, file_box.name)
+            await file_box.to_file(saved_file, overwrite=True)
+            file_box = FileBox.from_file(saved_file)
+            await room.say(file_box)
+
+        if msg.type() in [MessageType.MESSAGE_TYPE_TEXT, MessageType.MESSAGE_TYPE_URL, MessageType.MESSAGE_TYPE_MINI_PROGRAM]:
+            await msg.forward(room)
+
+        if msg.type() == MessageType.MESSAGE_TYPE_AUDIO:
+            file_box = await msg.to_file_box()
+            saved_file = os.path.join(self.file_cache_dir, file_box.name)
+            await file_box.to_file(saved_file, overwrite=True)
+            new_audio_file = FileBox.from_file(saved_file)
+            new_audio_file.metadata = {
+                "voiceLength": 2000
+            }
+            await room.say(new_audio_file)
+
+        self.logger.info('=================finish to Qun_Assistant_FAQ=================\n\n')
