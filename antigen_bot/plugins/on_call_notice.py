@@ -154,9 +154,9 @@ class OnCallNoticePlugin(WechatyPlugin):
 
         if msg.type() in [MessageType.MESSAGE_TYPE_IMAGE, MessageType.MESSAGE_TYPE_VIDEO, MessageType.MESSAGE_TYPE_ATTACHMENT]:
             file_box = await msg.to_file_box()
-            file_path = self.file_cache_dir
-            await file_box.to_file(file_path, overwrite=True)
-            file_box = FileBox.from_file(file_path)
+            saved_file = os.path.join(self.file_cache_dir, file_box.name)
+            await file_box.to_file(saved_file, overwrite=True)
+            file_box = FileBox.from_file(saved_file)
 
             for room in rooms:
                 await room.ready()
@@ -165,12 +165,28 @@ class OnCallNoticePlugin(WechatyPlugin):
                     await room.say(file_box)
                     self.last_loop[_id].append(topic)
 
-        if msg.type() in [MessageType.MESSAGE_TYPE_TEXT, MessageType.MESSAGE_TYPE_URL, MessageType.MESSAGE_TYPE_MINI_PROGRAM]:
+        if msg.type() in [MessageType.MESSAGE_TYPE_TEXT, MessageType.MESSAGE_TYPE_URL, MessageType.MESSAGE_TYPE_MINI_PROGRAM, MessageType.MESSAGE_TYPE_EMOTICON]:
             for room in rooms:
                 await room.ready()
                 topic = room.payload.topic
                 if regex.search(topic):
                     await msg.forward(room)
+                    self.last_loop[_id].append(topic)
+
+        if msg.type() == MessageType.MESSAGE_TYPE_AUDIO:
+            file_box = await msg.to_file_box()
+            saved_file = os.path.join(self.file_cache_dir, file_box.name)
+            await file_box.to_file(saved_file)
+            new_audio_file = FileBox.from_file(saved_file)
+            new_audio_file.metadata = {
+                "voiceLength": 2000
+            }
+
+            for room in rooms:
+                await room.ready()
+                topic = room.payload.topic
+                if regex.search(topic) and new_audio_file:
+                    await room.say(new_audio_file)
                     self.last_loop[_id].append(topic)
 
         self.logger.info('=================finish to On_call_Notice=================\n\n')

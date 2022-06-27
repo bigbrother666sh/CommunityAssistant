@@ -120,11 +120,11 @@ class QunAssistantPlugin(WechatyPlugin):
             return
 
         if msg.text() == 'save':
-            with open(os.path.join(self.file_cache_dir, 'room_dict.json'), 'w', encoding='utf-8') as f:
+            with open(os.path.join(self.config_url, 'room_dict.json'), 'w', encoding='utf-8') as f:
                 json.dump(self.room_dict, f, ensure_ascii=False)
-            with open(os.path.join(self.file_cache_dir, 'qunzhu.json'), 'w', encoding='utf-8') as f:
+            with open(os.path.join(self.config_url, 'qunzhu.json'), 'w', encoding='utf-8') as f:
                 json.dump(self.qunzhu, f, ensure_ascii=False)
-            with open(os.path.join(self.file_cache_dir, 'qun_open_seq.json'), 'w', encoding='utf-8') as f:
+            with open(os.path.join(self.config_url, 'qun_open_seq.json'), 'w', encoding='utf-8') as f:
                 json.dump(self.qun_open_seq, f, ensure_ascii=False)
             await msg.say('save success')
 
@@ -193,7 +193,6 @@ class QunAssistantPlugin(WechatyPlugin):
             return
 
         if talker.contact_id in self.qun_open_seq:
-            message_controller.disable_all_plugins(msg)
             if text == '结束':
                 del self.qun_open_seq[talker.contact_id]
             else:
@@ -203,7 +202,6 @@ class QunAssistantPlugin(WechatyPlugin):
         if room.room_id not in self.room_dict:
             return
 
-        message_controller.disable_all_plugins(msg)
         # 处理引用回复，从中自动提取文本FAQ
         if re.match(r"^「.+」\s-+\s.+", text, re.S):  # 判断是否为引用消息
             #quote = re.search(r"：.+」", text, re.S).group()[1:-1]  # 引用内容
