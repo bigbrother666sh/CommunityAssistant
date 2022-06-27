@@ -109,7 +109,7 @@ class QunAssistantPlugin(WechatyPlugin):
             await msg.say("QunAssistantPlugin Director Code: \n"
                           "ding -- check heartbeat \n"
                           "start with ### -- add verify code \n"
-                          "save -- save all the status")
+                          "save -- save users status")
             return
         # 3.functions
         if msg.text().startswith("###"):
@@ -124,8 +124,6 @@ class QunAssistantPlugin(WechatyPlugin):
                 json.dump(self.room_dict, f, ensure_ascii=False)
             with open(os.path.join(self.config_url, 'qunzhu.json'), 'w', encoding='utf-8') as f:
                 json.dump(self.qunzhu, f, ensure_ascii=False)
-            with open(os.path.join(self.config_url, 'qun_open_seq.json'), 'w', encoding='utf-8') as f:
-                json.dump(self.qun_open_seq, f, ensure_ascii=False)
             await msg.say('save success')
 
     @message_controller.may_disable_message
