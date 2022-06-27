@@ -1,17 +1,14 @@
 import asyncio
 import os
 import sys
-from wechaty import Wechaty, WechatyOptions, WechatyPluginOptions
-
-from dotenv import load_dotenv
-
+from wechaty import Wechaty, WechatyOptions
 from antigen_bot.plugins.on_call_notice import OnCallNoticePlugin
 from antigen_bot.plugins.qun_assistant import QunAssistantPlugin
+from antigen_bot.plugins.lurker import Luker
 
 
 async def final_failure_handler(*args, **kwargs):
     sys.exit()
-
 
 if __name__ == "__main__":
     # load_dotenv()
@@ -23,5 +20,6 @@ if __name__ == "__main__":
     bot.use([
         OnCallNoticePlugin(),
         QunAssistantPlugin(),
+        Luker(),
     ])
     asyncio.run(bot.start())

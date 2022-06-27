@@ -19,7 +19,7 @@ from utils.DFAFilter import DFAFilter
 from paddlenlp import Taskflow
 
 
-class QunAssitantPlugin(WechatyPlugin):
+class QunAssistantPlugin(WechatyPlugin):
     """
     群管助手，功能：
     1、非群主不能更改群名
