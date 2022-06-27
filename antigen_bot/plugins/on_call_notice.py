@@ -317,7 +317,7 @@ class OnCallNoticePlugin(WechatyPlugin):
                 reply = spec[word].get("reply")
 
                 if spec[word]["media"]:
-                    file_box = FileBox.from_file("media/" + spec[word]["media"])
+                    file_box = FileBox.from_file(self.config_url + "/media/" + spec[word]["media"])
                 words.remove(word)
 
         if (not reply) and ("转发" not in words):

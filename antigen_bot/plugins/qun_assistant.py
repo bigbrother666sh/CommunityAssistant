@@ -61,7 +61,7 @@ class QunAssistantPlugin(WechatyPlugin):
             with open(os.path.join(self.config_url, 'qunzhu.json'), 'r', encoding='utf-8') as f:
                 self.qunzhu = json.load(f)
         else:
-            self.qunzhu = {}
+            self.qunzhu = []
 
         if "verify_codes.json" in self.config_files:
             with open(os.path.join(self.config_url, 'verify_codes.json'), 'r', encoding='utf-8') as f:
@@ -143,7 +143,7 @@ class QunAssistantPlugin(WechatyPlugin):
         if text in self.verify_codes:
             message_controller.disable_all_plugins(msg)
             self.verify_codes.remove(text)
-            self.qunzhu[talker.contact_id] = talker.name
+            self.qunzhu.append(talker.contact_id)
             with open(os.path.join(self.config_url, 'qunzhu.json'), 'w', encoding='utf-8') as f:
                 json.dump(self.qunzhu, f, ensure_ascii=False)
             with open(os.path.join(self.config_url, 'verify_codes.json'), 'w', encoding='utf-8') as f:
@@ -167,27 +167,28 @@ class QunAssistantPlugin(WechatyPlugin):
         text = await msg.mention_text()
 
         if talker.contact_id in self.qunzhu:
-            message_controller.disable_all_plugins(msg)
             if owner.contact_id != talker.contact_id:
-                await room.say("您不是该群群主，出于隐私保护，您无法在本群中启动我的功能")
+                await room.say("您不是该群群主，出于隐私保护，您无法在本群中启动我的功能——群助理插件")
                 return
 
             if text == '觉醒':
+                message_controller.disable_all_plugins(msg)
                 self.room_dict[room.room_id] = talker.contact_id
                 with open(os.path.join(self.config_url, 'room_dict.json'), 'w', encoding='utf-8') as f:
-                    json.dump(self.qunzhu, f, ensure_ascii=False)
+                    json.dump(self.room_dict, f, ensure_ascii=False)
                 await room.say('大家好，我是AI群助理，我可以帮助群主回复大家的问题，请@我提问，如果遇到我不知道的问题，我会第一时间通知群主~')
 
                 if room.room_id not in self.qun_faq:
                     self.qun_faq[room.room_id] = {}
+
                 await talker.say(f'您已在{topic}群中激活了AI助理，如需关闭，请在群中@我说：退下')
-                await talker.alias(f'{topic}群主')
-                self.qunzhu[talker.contact_id] = await talker.alias()
 
             if text == '退下':
-                del self.room_dict[room.room_id]
-                with open(os.path.join(self.config_url, 'room_dict.json'), 'w', encoding='utf-8') as f:
-                    json.dump(self.qunzhu, f, ensure_ascii=False)
+                message_controller.disable_all_plugins(msg)
+                if room.room_id in self.room_dict:
+                    del self.room_dict[room.room_id]
+                    with open(os.path.join(self.config_url, 'room_dict.json'), 'w', encoding='utf-8') as f:
+                        json.dump(self.qunzhu, f, ensure_ascii=False)
                 await talker.say(f'您已在{topic}群中取消了AI助理，如需再次启用，请在群中@我说：觉醒')
             return
 
