@@ -176,7 +176,7 @@ class OnCallNoticePlugin(WechatyPlugin):
         if msg.type() == MessageType.MESSAGE_TYPE_AUDIO:
             file_box = await msg.to_file_box()
             saved_file = os.path.join(self.file_cache_dir, file_box.name)
-            await file_box.to_file(saved_file)
+            await file_box.to_file(saved_file, overwrite=True)
             new_audio_file = FileBox.from_file(saved_file)
             new_audio_file.metadata = {
                 "voiceLength": 2000

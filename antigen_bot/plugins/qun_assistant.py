@@ -239,16 +239,26 @@ class QunAssistantPlugin(WechatyPlugin):
             await room.say(f'对于您说的“{text}”，群主之前有回答，请参考如下', [talker.contact_id])
             for _answer in answer:
                 if _answer.type() in [MessageType.MESSAGE_TYPE_IMAGE, MessageType.MESSAGE_TYPE_VIDEO,
-                              MessageType.MESSAGE_TYPE_ATTACHMENT]:
+                                  MessageType.MESSAGE_TYPE_ATTACHMENT]:
                     file_box = await _answer.to_file_box()
-                    file_path = self.file_cache_dir
-                    await file_box.to_file(file_path, overwrite=True)
-                    file_box = FileBox.from_file(file_path)
+                    saved_file = os.path.join(self.file_cache_dir, file_box.name)
+                    await file_box.to_file(saved_file, overwrite=True)
+                    file_box = FileBox.from_file(saved_file)
                     await room.say(file_box)
 
                 if _answer.type() in [MessageType.MESSAGE_TYPE_TEXT, MessageType.MESSAGE_TYPE_URL,
-                              MessageType.MESSAGE_TYPE_MINI_PROGRAM]:
-                    await msg.forward(_answer)
+                                  MessageType.MESSAGE_TYPE_MINI_PROGRAM, MessageType.MESSAGE_TYPE_EMOTICON]:
+                    await _answer.forward(room)
+
+                if msg.type() == MessageType.MESSAGE_TYPE_AUDIO:
+                    file_box = await _answer.to_file_box()
+                    saved_file = os.path.join(self.file_cache_dir, file_box.name)
+                    await file_box.to_file(saved_file, overwrite=True)
+                    new_audio_file = FileBox.from_file(saved_file)
+                    new_audio_file.metadata = {
+                        "voiceLength": 2000
+                    }
+                    await room.say(new_audio_file)
 
         # 最后检查下talker的群昵称状态，并更新下talker在bot的备注
         alias = await room.alias(talker)
