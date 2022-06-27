@@ -4,7 +4,7 @@ import sys
 from wechaty import Wechaty, WechatyOptions
 from antigen_bot.plugins.on_call_notice import OnCallNoticePlugin
 from antigen_bot.plugins.qun_assistant import QunAssistantPlugin
-from antigen_bot.plugins.lurker import Luker
+from antigen_bot.plugins.lurker import Lurker
 
 
 async def final_failure_handler(*args, **kwargs):
@@ -20,6 +20,6 @@ if __name__ == "__main__":
     bot.use([
         OnCallNoticePlugin(),
         QunAssistantPlugin(),
-        Luker(),
+        Lurker(),
     ])
-    asyncio.run(bot.start())
+    asyncio.run(bot.start())ß
