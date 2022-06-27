@@ -3,10 +3,8 @@ import os
 from typing import Dict, List, Optional, Union
 import functools
 from copy import deepcopy
-
 from wechaty import Message, Wechaty, WechatyPlugin
 from wechaty_puppet import get_logger
-
 
 
 class MessageController:
@@ -17,8 +15,10 @@ class MessageController:
         self.ids = set()
         self.plugin_names: List[str] = []
         self.disabled_plugins: Dict[str, List[str]] = {}
-
-        self.logger = get_logger("MessageController", file='.wechaty/message_controller.log')
+        self.cache_dir = '.CA'
+        os.makedirs(self.cache_dir, exist_ok=True)
+        log_file = os.path.join(self.cache_dir, 'log.log')
+        self.logger = get_logger("MessageController", file=log_file)
     
     def exist(self, message_id: str) -> bool:
         """exist if the message has been emitted
