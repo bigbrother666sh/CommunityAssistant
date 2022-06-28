@@ -247,7 +247,7 @@ class QunAssistantPlugin(WechatyPlugin):
             return
 
         if re.match(r"^「.+」\s-+\s.+", text, re.S):
-            text = re.search(r"-\n.+", text, re.S).group()[2:]
+            text = re.search(r"：.+」", text, re.S).group()[1:-1] + re.search(r"-\n.+", text, re.S).group()[2:]
 
         text = text.strip().replace('\n', '，')
 
@@ -270,7 +270,7 @@ class QunAssistantPlugin(WechatyPlugin):
             similatiry_list = [[text, key] for key in list(self.qun_faq[self.room_dict[room.room_id]].keys())]
             similatiry = self.sim(similatiry_list)
             for i in range(len(similatiry)-1, -1, -1):
-                if similatiry[i]['similarity'] > 0.9:
+                if similatiry[i]['similarity'] > 0.88:
                     self.logger.info(f"found matched text: {similatiry[i]['text2']}")
                     await room.say(self.qun_faq[self.room_dict[room.room_id]][similatiry[i]['text2']], [talker.contact_id])
                     await room.say("以上答案来自群主历史回复，仅供参考哦~", [talker.contact_id])
@@ -282,7 +282,7 @@ class QunAssistantPlugin(WechatyPlugin):
             similatiry_list = [[text, key] for key in list(self.qun_meida_faq[self.room_dict[room.room_id]].keys())]
             similatiry = self.sim(similatiry_list)
             for i in range(len(similatiry)-1, -1, -1):
-                if similatiry[i]['similarity'] > 0.9:
+                if similatiry[i]['similarity'] > 0.88:
                     self.logger.info(f"found matched text: {similatiry[i]['text2']}")
                     answer = self.qun_meida_faq[self.room_dict[room.room_id]][similatiry[i]['text2']]
                     break
@@ -401,7 +401,7 @@ class QunAssistantPlugin(WechatyPlugin):
             file_box = FileBox.from_file(saved_file)
             await room.say(file_box)
 
-        if msg.type() in [MessageType.MESSAGE_TYPE_TEXT, MessageType.MESSAGE_TYPE_URL, MessageType.MESSAGE_TYPE_MINI_PROGRAM, MessageType.MESSAGE_TYPE_CHAT_HISTORY]:
+        if msg.type() in [MessageType.MESSAGE_TYPE_TEXT, MessageType.MESSAGE_TYPE_URL, MessageType.MESSAGE_TYPE_MINI_PROGRAM]:
             await msg.forward(room)
 
         if msg.type() == MessageType.MESSAGE_TYPE_AUDIO:
