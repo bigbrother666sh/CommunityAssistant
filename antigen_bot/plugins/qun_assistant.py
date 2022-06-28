@@ -155,7 +155,8 @@ class QunAssistantPlugin(WechatyPlugin):
             await talker.say('为避免打扰，我不会主动添加用户，如您朋友有使用需求，请可以把我推给ta -- QunAssistant')
             return
 
-        text = re.sub(r'@.+?\s', "", text)
+        if msg.room():
+            text = await msg.mention_text()
 
         # 4. handle the pre-record meida faq
         if talker.contact_id in self.listen_to:
@@ -231,8 +232,8 @@ class QunAssistantPlugin(WechatyPlugin):
                 message_controller.disable_all_plugins(msg)
                 quote = re.search(r"：.+」", text, re.S).group()[1:-1]  # 引用内容
                 reply = re.search(r"-\n.+", text, re.S).group()[2:]  # 回复内容
-                quote = re.sub(r'@.+?\s', "", quote).strip().replace('\n', '，')
-                reply = re.sub(r'@.+?\s', "", reply).strip().replace('\n', '，')
+                quote = re.sub(r'@.+?\s', "", quote).strip()
+                reply = re.sub(r'@.+?\s', "", reply).strip()
                 if talker.contact_id not in self.qun_faq:
                     self.qun_faq[talker.contact_id] = {}
                 self.qun_faq[talker.contact_id][quote] = reply
