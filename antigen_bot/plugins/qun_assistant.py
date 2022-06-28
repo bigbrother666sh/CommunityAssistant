@@ -155,8 +155,7 @@ class QunAssistantPlugin(WechatyPlugin):
             await talker.say('为避免打扰，我不会主动添加用户，如您朋友有使用需求，请可以把我推给ta -- QunAssistant')
             return
 
-        if msg.room():
-            text = await msg.mention_text()
+        text = re.sub(r'@.+?\s', "", text)
 
         # 4. handle the pre-record meida faq
         if talker.contact_id in self.listen_to:
@@ -164,16 +163,15 @@ class QunAssistantPlugin(WechatyPlugin):
             if talker.contact_id not in self.qun_meida_faq:
                 self.qun_meida_faq[talker.contact_id] = {}
 
-            if msg.type() == MessageType.MESSAGE_TYPE_TEXT:
-                if text == '结束':
-                    if self.qun_meida_faq[talker.contact_id][self.listen_to[talker.contact_id]]:
-                        await msg.say(f'{self.listen_to[talker.contact_id]}的答案已经记录 -- QunAssistant')
-                    else:
-                        await msg.say(f'{self.listen_to[talker.contact_id]}的答案尚未补充，再次录入需要重新输入问题文本 -- QunAssistant')
-                    del self.listen_to[talker.contact_id]
+            if text == '结束':
+                if self.qun_meida_faq[talker.contact_id][self.listen_to[talker.contact_id]]:
+                    await msg.say(f'{self.listen_to[talker.contact_id]}的答案已经记录 -- QunAssistant')
+                else:
+                    await msg.say(f'{self.listen_to[talker.contact_id]}的答案尚未补充，再次录入需要重新输入问题文本 -- QunAssistant')
+                del self.listen_to[talker.contact_id]
+                return
 
-                await msg.say("提醒您，问题录入后记得发送：结束 -- QunAssistant")
-
+            if not self.listen_to[talker.contact_id] or text == self.listen_to[talker.contact_id]:
                 self.listen_to[talker.contact_id] = text
                 if text in self.qun_meida_faq[talker.contact_id]:
                     await msg.say("问题已存在，如果更新答案请直接发送媒体文件，否则请发送：结束 -- QunAssistant")
@@ -182,12 +180,13 @@ class QunAssistantPlugin(WechatyPlugin):
                     await msg.say("问题已记录，请继续发送媒体文件（支持视频、图片、文件、公众号文章、小程序、语音等）\n"
                                   "依次一条，依次发送到这里，我会逐一记录 \n"
                                   "最后请发送 结束 -- QunAssistant")
+                return
+
+            if self.listen_to[talker.contact_id]:
+                self.qun_meida_faq[talker.contact_id][self.listen_to[talker.contact_id]].append(msg)
+                await msg.say("已记录，如果还有答案，请继续转发。录入结束请发送：结束 -- QunAssistant")
             else:
-                if self.listen_to[talker.contact_id]:
-                    self.qun_meida_faq[talker.contact_id][self.listen_to[talker.contact_id]].append(msg)
-                    await msg.say("已记录，如果还有答案，请继续转发。录入结束请发送：结束 -- QunAssistant")
-                else:
-                    await msg.say("请先发送问题文本，再录入答案 -- QunAssistant")
+                await msg.say("请先发送问题文本，再录入答案 -- QunAssistant")
             return
 
         if talker.contact_id in self.qunzhu and "记一下" in text:
@@ -232,6 +231,8 @@ class QunAssistantPlugin(WechatyPlugin):
                 message_controller.disable_all_plugins(msg)
                 quote = re.search(r"：.+」", text, re.S).group()[1:-1]  # 引用内容
                 reply = re.search(r"-\n.+", text, re.S).group()[2:]  # 回复内容
+                quote = re.sub(r'@.+?\s', "", quote).strip().replace('\n', '，')
+                reply = re.sub(r'@.+?\s', "", reply).strip().replace('\n', '，')
                 if talker.contact_id not in self.qun_faq:
                     self.qun_faq[talker.contact_id] = {}
                 self.qun_faq[talker.contact_id][quote] = reply
@@ -287,7 +288,7 @@ class QunAssistantPlugin(WechatyPlugin):
             for _answer in answer:
                 await self.forward_message(_answer, room)
 
-        if not answered and answered is False:
+        if not answer and answered is False:
             await room.say("抱歉这个问题我没找到答案，已私信通知群主", [talker.contact_id, self.room_dict[room.room_id]])
             try:
                 await owner.say(f'{talker.name}在{topic}群中提问了：{text}，我的记忆中没有这个答案，请您及时群内引用回复，或者录入媒体答案 --QunAssistant')
