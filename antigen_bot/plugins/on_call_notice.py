@@ -222,7 +222,7 @@ class OnCallNoticePlugin(WechatyPlugin):
             with open(os.path.join(self.config_url, 'authorize.json'), 'w', encoding='utf-8') as f:
                 json.dump(self.auth, f)
             await msg.room().say("本群授权已开启，如需撤销，请在本群中@我并发送 撤销", [talker.contact_id])
-            await msg.say("本群已授权开启转发，授权期仅限今日（至凌晨12点）。转发请按如下格式： @我 楼号 内容（均用空格隔开）")
+            await msg.say("本群已授权开启转发，授权期仅限今日（至凌晨12点）。转发请按如下格式： @我 楼号 预设关键词or转发（均用空格隔开）")
             return
 
         # 如果是转发状态，那么就直接转发
