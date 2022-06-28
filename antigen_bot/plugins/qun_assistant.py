@@ -171,8 +171,10 @@ class QunAssistantPlugin(WechatyPlugin):
                 return
 
             if not self.listen_to[talker.contact_id] or text == self.listen_to[talker.contact_id]:
-                if msg.type() == MessageType.MESSAGE_TYPE_TEXT:
-                    self.listen_to[talker.contact_id] = text
+                if msg.type() != MessageType.MESSAGE_TYPE_TEXT:
+                    await msg.say("请先录入问题，问题仅支持文本，放弃请发送：结束 -- QunAssistant")
+                    return
+                self.listen_to[talker.contact_id] = text
                 if text in self.qun_meida_faq[talker.contact_id]:
                     await msg.say("问题已存在，如果更新答案请直接发送媒体文件，否则请发送：结束 -- QunAssistant")
                 else:
@@ -399,7 +401,7 @@ class QunAssistantPlugin(WechatyPlugin):
             file_box = FileBox.from_file(saved_file)
             await room.say(file_box)
 
-        if msg.type() in [MessageType.MESSAGE_TYPE_TEXT, MessageType.MESSAGE_TYPE_URL, MessageType.MESSAGE_TYPE_MINI_PROGRAM]:
+        if msg.type() in [MessageType.MESSAGE_TYPE_TEXT, MessageType.MESSAGE_TYPE_URL, MessageType.MESSAGE_TYPE_MINI_PROGRAM, MessageType.MESSAGE_TYPE_CHAT_HISTORY]:
             await msg.forward(room)
 
         if msg.type() == MessageType.MESSAGE_TYPE_AUDIO:
