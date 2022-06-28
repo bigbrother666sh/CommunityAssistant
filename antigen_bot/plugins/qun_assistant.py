@@ -173,7 +173,8 @@ class QunAssistantPlugin(WechatyPlugin):
                 return
 
             if not self.listen_to[talker.contact_id] or text == self.listen_to[talker.contact_id]:
-                self.listen_to[talker.contact_id] = text
+                if msg.type() == MessageType.MESSAGE_TYPE_TEXT:
+                    self.listen_to[talker.contact_id] = text
                 if text in self.qun_meida_faq[talker.contact_id]:
                     await msg.say("问题已存在，如果更新答案请直接发送媒体文件，否则请发送：结束 -- QunAssistant")
                 else:
