@@ -247,7 +247,7 @@ class QunAssistantPlugin(WechatyPlugin):
             return
 
         if re.match(r"^「.+」\s-+\s.+", text, re.S):
-            text = re.search(r"：.+」", text, re.S).group()[1:-1] + re.search(r"-\n.+", text, re.S).group()[2:]
+            text = re.search(r"：.+」", text, re.S).group()[1:-1] + "，" + re.search(r"-\n.+", text, re.S).group()[2:]
 
         text = text.strip().replace('\n', '，')
 
@@ -261,6 +261,7 @@ class QunAssistantPlugin(WechatyPlugin):
         """
         intent here
         after this part be finished, no mention_self needed
+        侦测到匹配的意图（得分超过0.6），调用相应的函数；如果是@bot，则强制会选择一个得分最高的意图去支持（遇到nlu_fallback，会反问澄清）
         """
         message_controller.disable_all_plugins(msg)
         self.logger.info(f'{talker.name} in {topic} asked: {text}')
