@@ -161,11 +161,9 @@ class QunAssistantPlugin(WechatyPlugin):
         # 4. handle the pre-record meida faq
         if talker.contact_id in self.listen_to:
             message_controller.disable_all_plugins(msg)
-            if talker.contact_id not in self.qun_meida_faq:
-                self.qun_meida_faq[talker.contact_id] = {}
 
             if text == '结束':
-                if self.qun_meida_faq[talker.contact_id][self.listen_to[talker.contact_id]]:
+                if self.qun_meida_faq[talker.contact_id].get(self.listen_to[talker.contact_id], []):
                     await msg.say(f'{self.listen_to[talker.contact_id]}的答案已经记录 -- QunAssistant')
                 else:
                     await msg.say(f'{self.listen_to[talker.contact_id]}的答案尚未补充，再次录入需要重新输入问题文本 -- QunAssistant')
@@ -179,7 +177,7 @@ class QunAssistantPlugin(WechatyPlugin):
                     await msg.say("问题已存在，如果更新答案请直接发送媒体文件，否则请发送：结束 -- QunAssistant")
                 else:
                     self.qun_meida_faq[talker.contact_id][text] = []
-                    await msg.say("问题已记录，请继续发送媒体文件（支持视频、图片、文件、公众号文章、小程序、语音等）\n"
+                    await msg.say("问题已记录，请继续发送媒体文件（支持视频、图片、文字、公众号文章、小程序、语音等）\n"
                                   "依次一条，依次发送到这里，我会逐一记录 \n"
                                   "最后请发送 结束 -- QunAssistant")
                 return
@@ -209,25 +207,26 @@ class QunAssistantPlugin(WechatyPlugin):
         owner = await room.owner()
 
         if talker.contact_id in self.qunzhu:
-            if owner.contact_id != talker.contact_id:
-                await room.say("您不是该群群主，出于隐私保护，您无法在本群中启动我的功能——群助理插件")
-                return
+            if await msg.mention_self():
+                if owner.contact_id != talker.contact_id:
+                    await room.say("您不是该群群主，出于隐私保护，您无法在本群中启动我的功能——群助理插件")
+                    return
 
-            if text == '觉醒':
-                message_controller.disable_all_plugins(msg)
-                self.room_dict[room.room_id] = talker.contact_id
-                with open(os.path.join(self.config_url, 'room_dict.json'), 'w', encoding='utf-8') as f:
-                    json.dump(self.room_dict, f, ensure_ascii=False)
-                await room.say('大家好，我是AI群助理，我可以帮助群主回复大家的问题，请@我提问，如果遇到我不知道的问题，我会第一时间通知群主~')
-                await talker.say(f'您已在{topic}群中激活了AI助理，如需关闭，请在群中@我说：退下')
-
-            if text == '退下':
-                message_controller.disable_all_plugins(msg)
-                if room.room_id in self.room_dict:
-                    del self.room_dict[room.room_id]
+                if text == '觉醒':
+                    message_controller.disable_all_plugins(msg)
+                    self.room_dict[room.room_id] = talker.contact_id
                     with open(os.path.join(self.config_url, 'room_dict.json'), 'w', encoding='utf-8') as f:
-                        json.dump(self.qunzhu, f, ensure_ascii=False)
-                await talker.say(f'您已在{topic}群中取消了AI助理，如需再次启用，请在群中@我说：觉醒')
+                        json.dump(self.room_dict, f, ensure_ascii=False)
+                    await room.say('大家好，我是AI群助理，我可以帮助群主回复大家的问题，请@我提问，如果遇到我不知道的问题，我会第一时间通知群主~')
+                    await talker.say(f'您已在{topic}群中激活了AI助理，如需关闭，请在群中@我说：退下')
+
+                if text == '退下':
+                    message_controller.disable_all_plugins(msg)
+                    if room.room_id in self.room_dict:
+                        del self.room_dict[room.room_id]
+                        with open(os.path.join(self.config_url, 'room_dict.json'), 'w', encoding='utf-8') as f:
+                            json.dump(self.qunzhu, f, ensure_ascii=False)
+                    await talker.say(f'您已在{topic}群中取消了AI助理，如需再次启用，请在群中@我说：觉醒')
 
             if re.match(r"^「.+」\s-+\s.+", text, re.S):  # 判断是否为引用消息
                 message_controller.disable_all_plugins(msg)
@@ -259,6 +258,7 @@ class QunAssistantPlugin(WechatyPlugin):
             return
         """
         intent here
+        after this part be finished, no mention_self needed
         """
         message_controller.disable_all_plugins(msg)
         self.logger.info(f'{talker.name} in {topic} asked: {text}')
@@ -392,7 +392,7 @@ class QunAssistantPlugin(WechatyPlugin):
         Args:
             msg (Message): the message to forward
         """
-        if msg.type() in [MessageType.MESSAGE_TYPE_IMAGE, MessageType.MESSAGE_TYPE_VIDEO, MessageType.MESSAGE_TYPE_ATTACHMENT, MessageType.MESSAGE_TYPE_EMOTICON]:
+        if msg.type() in [MessageType.MESSAGE_TYPE_IMAGE, MessageType.MESSAGE_TYPE_VIDEO, MessageType.MESSAGE_TYPE_EMOTICON]:
             file_box = await msg.to_file_box()
             saved_file = os.path.join(self.file_cache_dir, file_box.name)
             await file_box.to_file(saved_file, overwrite=True)

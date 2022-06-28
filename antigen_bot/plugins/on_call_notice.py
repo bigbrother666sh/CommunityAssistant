@@ -152,7 +152,7 @@ class OnCallNoticePlugin(WechatyPlugin):
 
         self.last_loop[_id] = []
 
-        if msg.type() in [MessageType.MESSAGE_TYPE_IMAGE, MessageType.MESSAGE_TYPE_VIDEO, MessageType.MESSAGE_TYPE_ATTACHMENT, MessageType.MESSAGE_TYPE_EMOTICON]:
+        if msg.type() in [MessageType.MESSAGE_TYPE_IMAGE, MessageType.MESSAGE_TYPE_VIDEO, MessageType.MESSAGE_TYPE_EMOTICON]:
             file_box = await msg.to_file_box()
             saved_file = os.path.join(self.file_cache_dir, file_box.name)
             await file_box.to_file(saved_file, overwrite=True)
