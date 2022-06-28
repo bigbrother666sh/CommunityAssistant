@@ -73,13 +73,10 @@ class QunAssistantPlugin(WechatyPlugin):
             with open(os.path.join(self.config_url, 'qun_faq.json'), 'r', encoding='utf-8') as f:
                 self.qun_faq = json.load(f)
         else:
-            self.qun_faq = {key: {} for key in self.room_dict.keys()}
+            self.qun_faq = {key: {} for key in self.qunzhu}
 
-        if "qun_open_seq.json" in self.config_files:
-            with open(os.path.join(self.config_url, 'qun_open_seq.json'), 'r', encoding='utf-8') as f:
-                self.qun_open_seq = json.load(f)
-        else:
-            self.qun_open_seq = {}
+        self.qun_meida_faq = {key: {} for key in self.qunzhu}
+        self.listen_to = {}
 
         self.gfw = DFAFilter()
         self.gfw.parse()
@@ -116,7 +113,7 @@ class QunAssistantPlugin(WechatyPlugin):
             self.verify_codes.append(msg.text()[3:])
             with open(os.path.join(self.config_url, 'verify_codes.json'), 'w', encoding='utf-8') as f:
                 json.dump(self.verify_codes, f)
-            await msg.say(f"new verify code: {msg.text()[3:]} added")
+            await msg.say(f"new verify code: {msg.text()[3:]} added -- QunAssistant")
             return
 
         if msg.text() == 'save':
@@ -124,7 +121,9 @@ class QunAssistantPlugin(WechatyPlugin):
                 json.dump(self.room_dict, f, ensure_ascii=False)
             with open(os.path.join(self.config_url, 'qunzhu.json'), 'w', encoding='utf-8') as f:
                 json.dump(self.qunzhu, f, ensure_ascii=False)
-            await msg.say('save success')
+            with open(os.path.join(self.config_url, 'qun_faq.json'), 'w', encoding='utf-8') as f:
+                json.dump(self.qun_faq, f, ensure_ascii=False)
+            await msg.say('save success -- QunAssistant')
 
     @message_controller.may_disable_message
     async def on_message(self, msg: Message) -> None:
@@ -148,23 +147,65 @@ class QunAssistantPlugin(WechatyPlugin):
                 json.dump(self.qunzhu, f, ensure_ascii=False)
             with open(os.path.join(self.config_url, 'verify_codes.json'), 'w', encoding='utf-8') as f:
                 json.dump(self.verify_codes, f, ensure_ascii=False)
-            await msg.say("hi，很高兴为您服务，请拉我到需要我协助管理的群内，并@我说：觉醒")
+            await msg.say("hi，很高兴为您服务，请拉我到需要我协助管理的群内，并@我说：觉醒 -- QunAssistant")
             return
 
         if msg.type() == MessageType.MESSAGE_TYPE_CONTACT:
             # 目前contact格式消息没法儿处理，收到此类消息可以让用户把小助手转发给对方，这样也不会造成打扰
-            await talker.say('为避免打扰，我不会主动添加用户，如您朋友有使用需求，请可以把我推给ta')
+            await talker.say('为避免打扰，我不会主动添加用户，如您朋友有使用需求，请可以把我推给ta -- QunAssistant')
             return
 
-        # 4. 这个模块只处理群消息，且只处理@自己的消息
-        if not msg.room() or not await msg.mention_self():
+        if msg.room():
+            text = await msg.mention_text()
+
+        # 4. handle the pre-record meida faq
+        if talker.contact_id in self.listen_to:
+            message_controller.disable_all_plugins(msg)
+            if talker.contact_id not in self.qun_meida_faq:
+                self.qun_meida_faq[talker.contact_id] = {}
+
+            if msg.type() == MessageType.MESSAGE_TYPE_TEXT:
+                if text == '结束':
+                    if self.qun_meida_faq[talker.contact_id][self.listen_to[talker.contact_id]]:
+                        await msg.say(f'{self.listen_to[talker.contact_id]}的答案已经记录 -- QunAssistant')
+                    else:
+                        await msg.say(f'{self.listen_to[talker.contact_id]}的答案尚未补充，再次录入需要重新输入问题文本 -- QunAssistant')
+                    del self.listen_to[talker.contact_id]
+
+                await msg.say("提醒您，问题录入后记得发送：结束 -- QunAssistant")
+
+                self.listen_to[talker.contact_id] = text
+                if text in self.qun_meida_faq[talker.contact_id]:
+                    await msg.say("问题已存在，如果更新答案请直接发送媒体文件，否则请发送：结束 -- QunAssistant")
+                else:
+                    self.qun_meida_faq[talker.contact_id][text] = []
+                    await msg.say("问题已记录，请继续发送媒体文件（支持视频、图片、文件、公众号文章、小程序、语音等）\n"
+                                  "依次一条，依次发送到这里，我会逐一记录 \n"
+                                  "最后请发送 结束 -- QunAssistant")
+            else:
+                if self.listen_to[talker.contact_id]:
+                    self.qun_meida_faq[talker.contact_id][self.listen_to[talker.contact_id]].append(msg)
+                    await msg.say("已记录，如果还有答案，请继续转发。录入结束请发送：结束 -- QunAssistant")
+                else:
+                    await msg.say("请先发送问题文本，再录入答案 -- QunAssistant")
+            return
+
+        if talker.contact_id in self.qunzhu and "记一下" in text:
+            message_controller.disable_all_plugins(msg)
+            await msg.say("好的，请先输入问题，仅限文本格式 -- QunAssistant")
+            if talker.contact_id not in self.qun_meida_faq:
+                self.qun_meida_faq[talker.contact_id] = {}
+            self.listen_to[talker.contact_id] = ''
+            return
+
+        # 5. 处理群主在群内的信息，包括在群里启用或者取消小助手，以及通过引用消息录入FAQ
+        if not msg.room():
             return
 
         room = msg.room()
         await room.ready()
         topic = await room.topic()
         owner = await room.owner()
-        text = await msg.mention_text()
 
         if talker.contact_id in self.qunzhu:
             if owner.contact_id != talker.contact_id:
@@ -177,10 +218,6 @@ class QunAssistantPlugin(WechatyPlugin):
                 with open(os.path.join(self.config_url, 'room_dict.json'), 'w', encoding='utf-8') as f:
                     json.dump(self.room_dict, f, ensure_ascii=False)
                 await room.say('大家好，我是AI群助理，我可以帮助群主回复大家的问题，请@我提问，如果遇到我不知道的问题，我会第一时间通知群主~')
-
-                if room.room_id not in self.qun_faq:
-                    self.qun_faq[room.room_id] = {}
-
                 await talker.say(f'您已在{topic}群中激活了AI助理，如需关闭，请在群中@我说：退下')
 
             if text == '退下':
@@ -190,28 +227,23 @@ class QunAssistantPlugin(WechatyPlugin):
                     with open(os.path.join(self.config_url, 'room_dict.json'), 'w', encoding='utf-8') as f:
                         json.dump(self.qunzhu, f, ensure_ascii=False)
                 await talker.say(f'您已在{topic}群中取消了AI助理，如需再次启用，请在群中@我说：觉醒')
+
+            if re.match(r"^「.+」\s-+\s.+", text, re.S):  # 判断是否为引用消息
+                message_controller.disable_all_plugins(msg)
+                quote = re.search(r"：.+」", text, re.S).group()[1:-1]  # 引用内容
+                reply = re.search(r"-\n.+", text, re.S).group()[2:]  # 回复内容
+                if talker.contact_id not in self.qun_faq:
+                    self.qun_faq[talker.contact_id] = {}
+                self.qun_faq[talker.contact_id][quote] = reply
             return
 
-        if talker.contact_id in self.qun_open_seq:
-            text = self.qun_open_seq[talker.contact_id][0]
-            room = self.qun_open_seq[talker.contact_id][1]
-            talkerid = self.qun_open_seq[talker.contact_id][2]
-            if text == '结束':
-                await room.say(f'您之前的提问：{text}，群主已经回答了，答案见上，请您查收~', [talkerid])
-                del self.qun_open_seq[talker.contact_id]
-            else:
-                self.qun_faq[room.room_id][text].append(msg)
-                await self.forward_message(msg, room)
-            return
-
+       # 6. 处理群成员信息，目前仅限FAQ，
+       # Todo：后面会增加intent判断，根据intent调用不同function【如安抚、劝架等】
         if room.room_id not in self.room_dict:
             return
 
-        # 处理引用回复，从中自动提取文本FAQ
-        if re.match(r"^「.+」\s-+\s.+", text, re.S):  # 判断是否为引用消息
-            #quote = re.search(r"：.+」", text, re.S).group()[1:-1]  # 引用内容
-            reply = re.search(r"-\n.+", text, re.S).group()[2:]  # 回复内容
-            text = reply
+        if re.match(r"^「.+」\s-+\s.+", text, re.S):
+            text = re.search(r"-\n.+", text, re.S).group()[2:]
 
         text = text.strip().replace('\n', '，')
 
@@ -220,32 +252,47 @@ class QunAssistantPlugin(WechatyPlugin):
             await room.say('请勿发表不当言论，谢谢配合', [talker.contact_id])
             return
 
+        if not await msg.mention_self():
+            return
+        """
+        intent here
+        """
+        message_controller.disable_all_plugins(msg)
         self.logger.info(f'{talker.name} in {topic} asked: {text}')
-        # 5. smart FAQ
-        answer = []
-        if self.qun_faq[room.room_id]:
-            similatiry_list = [[text, key] for key in list(self.qun_faq[room.room_id].keys())]
+        # 7. smart FAQ
+        answered = False
+        if self.qun_faq[self.room_dict[room.room_id]]:
+            similatiry_list = [[text, key] for key in list(self.qun_faq[self.room_dict[room.room_id]].keys())]
             similatiry = self.sim(similatiry_list)
             for i in range(len(similatiry)-1, -1, -1):
                 if similatiry[i]['similarity'] > 0.9:
                     self.logger.info(f"found matched text: {similatiry[i]['text2']}")
-                    answer = self.qun_faq[room.room_id][similatiry[i]['text2']]
+                    await room.say(self.qun_faq[self.room_dict[room.room_id]][similatiry[i]['text2']], [talker.contact_id])
+                    await room.say("以上答案来自群主历史回复，仅供参考哦~", [talker.contact_id])
+                    answered = True
                     break
 
-        if not answer:
-            await room.say("抱歉这个问题我没找到答案，已私信通知群主", [talker.contact_id, self.room_dict[room.room_id]])
-            #await contact = self.bot.Contact.find(self.qunzhu[self.room_dict[room.room_id]])
-            try:
-                await owner.say(f'{talker.name}在{topic}群中提问了：{text}，我的记忆中没有这个答案，请您直接在这里回复我，我会代为回复并在后续类似问题中自动回复')
-                await owner.say('答案支持文本、图片、视频、文件、小程序等多种格式，多条答案请依次回复，并在最后说“结束”')
-            except Exception as e:
-                self.logger.error(e)
-            self.qun_open_seq[owner.contact_id] = [text, room, talker.contact_id]
-            self.qun_faq[room.room_id][text] = []
-        else:
+        answer = []
+        if self.qun_meida_faq[self.room_dict[room.room_id]]:
+            similatiry_list = [[text, key] for key in list(self.qun_meida_faq[self.room_dict[room.room_id]].keys())]
+            similatiry = self.sim(similatiry_list)
+            for i in range(len(similatiry)-1, -1, -1):
+                if similatiry[i]['similarity'] > 0.9:
+                    self.logger.info(f"found matched text: {similatiry[i]['text2']}")
+                    answer = self.qun_meida_faq[self.room_dict[room.room_id]][similatiry[i]['text2']]
+                    break
+
+        if answer:
             await room.say(f'对于您说的“{text}”，群主之前有回答，请参考如下', [talker.contact_id])
             for _answer in answer:
                 await self.forward_message(_answer, room)
+
+        if not answered and answered is False:
+            await room.say("抱歉这个问题我没找到答案，已私信通知群主", [talker.contact_id, self.room_dict[room.room_id]])
+            try:
+                await owner.say(f'{talker.name}在{topic}群中提问了：{text}，我的记忆中没有这个答案，请您及时群内引用回复，或者录入媒体答案 --QunAssistant')
+            except Exception as e:
+                self.logger.error(e)
 
         # 最后检查下talker的群昵称状态，并更新下talker在bot的备注
         alias = await room.alias(talker)
@@ -254,7 +301,7 @@ class QunAssistantPlugin(WechatyPlugin):
                 try:
                     await talker.alias(alias)
                     print(f"改变{talker.name}的备注成功!")
-                except:
+                except Exception as e:
                     print(f"改变{talker.name}的备注失败~")
         else:
             await room.say('另外提醒您及时按群主要求更改群昵称哦', [talker.contact_id])
@@ -339,10 +386,8 @@ class QunAssistantPlugin(WechatyPlugin):
 
     async def forward_message(self, msg: Message, room: Room) -> None:
         """forward the message to the target conversations
-
         Args:
             msg (Message): the message to forward
-            regex (the compile object): the conversation filter
         """
         if msg.type() in [MessageType.MESSAGE_TYPE_IMAGE, MessageType.MESSAGE_TYPE_VIDEO, MessageType.MESSAGE_TYPE_ATTACHMENT, MessageType.MESSAGE_TYPE_EMOTICON]:
             file_box = await msg.to_file_box()
