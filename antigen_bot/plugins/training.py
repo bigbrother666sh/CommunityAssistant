@@ -91,7 +91,7 @@ class TrainingPlugin(WechatyPlugin):
 
             if self.bot.user_self() in await msg.mention_list() and room.room_id in self.training_room:
                 message_controller.disable_all_plugins(msg)
-                for contact in await room.member_list():
+                for contact in await msg.mention_list():
                     if contact == self.bot.user_self() or contact.contact_id in self.directors:
                         continue
                     else:
