@@ -1,23 +1,18 @@
 import json
 import os
 import re
-from typing import Optional, List
+from typing import Optional
 from wechaty import (
     Wechaty,
-    Room,
-    Contact,
-    FileBox,
     MessageType,
     WechatyPlugin,
     Message,
     WechatyPluginOptions
 )
 from wechaty_puppet import get_logger
-from datetime import datetime
 from antigen_bot.message_controller import message_controller
 from utils.DFAFilter import DFAFilter
 from utils.rasaintent import RasaIntent
-from paddlenlp import Taskflow
 from antigen_bot.inspurai import Yuan
 
 
@@ -99,12 +94,14 @@ class TrainingPlugin(WechatyPlugin):
 
             if text == '刺头':
                 message_controller.disable_all_plugins(msg)
-                self.training_room[room.room_id] = {'pre_prompt': '', 'des': '', 'trainer': '', 'turn': []}
+                self.training_room[room.room_id] = {'pre_prompt': '你叫李二牛，今年四十多岁，是个蛮不讲理的人。你所在的小区因突发疫情需要暂时封闭，但你执意出去与朋友聚会，于是你来到居委会，决定与工作人员好好理论一番。',
+                                                    'des': '情景对话模拟训练已开始。\n我扮演一个蛮不讲理的小区居民，我们所在的小区因突发疫情需要暂时封闭，而我执意要外出与朋友聚会，我现在来到居委会，您刚好作为工作人员接待我。', 'trainer': '', 'turn': []}
                 await room.say('好的，刺头模式已启动，请指定测试人员', [talker.contact_id])
 
             if text == '怨妇':
                 message_controller.disable_all_plugins(msg)
-                self.training_room[room.room_id] = {'pre_prompt': '', 'des': '', 'trainer': '', 'turn': []}
+                self.training_room[room.room_id] = {'pre_prompt': '你叫王翠花，是个四十多岁的家庭妇女，你总是怀疑丈夫有外遇，但你也没有确凿证据，于是你来到居委会找工作人员寻求帮助。',
+                                                    'des': '情景对话模拟训练已开始。\n我扮演一个四十多岁的家庭妇女，我怀疑我的丈夫有外遇，这让我心神不宁。于是我来到居委会寻求帮助，其实我并不确定这事儿是否归居委会管……您刚好作为工作人员接待我。', 'trainer': '', 'turn': []}
                 await room.say('好的，怨妇模式已启动，请指定测试人员', [talker.contact_id])
 
             if self.bot.user_self() in await msg.mention_list() and self.training_room[room.room_id]:
@@ -118,15 +115,18 @@ class TrainingPlugin(WechatyPlugin):
                         break
                 if self.training_room[room.room_id]['pre_prompt']:
                     await room.say(f'{self.training_room[room.room_id]["des"]}', [self.training_room[room.room_id]["trainer"]])
+                    await room.say('提醒：对话中有时我会故意沉默，您可以继续说，不必等待。', [self.training_room[room.room_id]["trainer"]])
                     self.logger.info(f'director has start the training process, detail:{self.training_room[room.room_id]}')
-                    if self.training_room[room.room_id]['pre_prompt'] == '':
-                        await room.say('', [self.training_room[room.room_id]["trainer"]])
-                        self.training_room[room.room_id]["turn"].append(f"你说：“{reply}”")
-                        self.logger.info(f"AI说：“{reply}”")
-                    if self.training_room[room.room_id]['pre_prompt'] == '':
-                        await room.say('', [self.training_room[room.room_id]["trainer"]])
-                        self.training_room[room.room_id]["turn"].append(f"你说：“{reply}”")
-                        self.logger.info(f"AI说：“{reply}”")
+                    if self.training_room[room.room_id]['pre_prompt'] == '你叫李二牛，今年四十多岁，是个蛮不讲理的人。你所在的小区因突发疫情需要暂时封闭，但你执意出去与朋友聚会，于是你来到居委会，决定与工作人员好好理论一番。':
+                        await room.say('居委会就可以随便限制居民的人身自由了么？！')
+                        self.training_room[room.room_id]["turn"].append("你说：“居委会就可以随便限制居民的人身自由了么？！”")
+                        self.logger.info("AI说：“居委会就可以随便限制居民的人身自由了么？！”")
+                    if self.training_room[room.room_id]['pre_prompt'] == '你叫王翠花，是个四十多岁的家庭妇女，你总是怀疑丈夫有外遇，但你也没有确凿证据，于是你来到居委会找工作人员寻求帮助。':
+                        await room.say('我怀疑我丈夫出轨了，现在法律不是说保护妇女权益么？这事儿你们居委会管么？')
+                        self.training_room[room.room_id]["turn"].append("你说：“我怀疑我丈夫出轨了，现在法律不是说保护妇女权益么？这事儿你们居委会管么？”")
+                        self.logger.info("AI说：“我怀疑我丈夫出轨了，现在法律不是说保护妇女权益么？这事儿你们居委会管么？”")
+                else:
+                    await room.say('请先指定仿真模式，现在有两种模式：刺头和怨妇。', [talker.contact_id])
             return
 
         # 3. check if is trainer
@@ -158,13 +158,21 @@ class TrainingPlugin(WechatyPlugin):
         self.training_room[room.room_id]["turn"].append(f"工作人员说：“{text}”")
         self.logger.info(f"trainer说：“{text}”")
 
+        dialog = ''
+        for i in range(len(self.training_room[room.room_id]["turn"])-1, -1, -1):
+            dialog = self.training_room[room.room_id]["turn"][i] + dialog
+            if len(dialog) > 150:
+                break
+
+        prompt = self.training_room[room.room_id]['pre_prompt'] + dialog + "你说：“"
+        self.logger.info(prompt)
+
         for i in range(7):
-            prompt = self.training_room[room.room_id]['pre_prompt'] + ''.join(self.training_room[room.room_id]['turn'])
             reply = self.yuan.submit_API(prompt, trun="”")
             if not reply or reply == "somethingwentwrongwithyuanservice" or reply == "请求异常，请重试":
                 self.logger.warning(f'generation failed {str(i + 1)} times.')
                 continue
-            if len(reply) <= 5 or reply not in ''.join(self.training_room[room.room_id]['turn']:
+            if len(reply) <= 5 or reply not in ''.join(self.training_room[room.room_id]['turn']):
                 break
 
         if not reply or reply == "somethingwentwrongwithyuanservice" or reply == "请求异常，请重试":

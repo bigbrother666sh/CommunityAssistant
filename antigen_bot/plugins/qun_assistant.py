@@ -255,38 +255,50 @@ class QunAssistantPlugin(WechatyPlugin):
                 self.qun_faq[talker.contact_id][quote] = reply
             return
 
-       # 6. 处理群成员信息，目前仅限FAQ，
+       # 6. 处理群成员信息，目前支持劝架和智能FAQ，
         if room.room_id not in self.room_dict:
             return
 
+        message_controller.disable_all_plugins(msg)
         if re.match(r"^「.+」\s-+\s.+", text, re.S):
             text = re.search(r"：.+」", text, re.S).group()[1:-1] + "，" + re.search(r"-\n.+", text, re.S).group()[2:]
 
         text = text.strip().replace('\n', '，')
 
         if self.gfw.filter(text):
-            message_controller.disable_all_plugins(msg)
             self.logger.info(f'{text} is filtered, for the reason of {self.gfw.filter(text)}')
             await room.say('请勿发表不当言论，谢谢配合', [talker.contact_id])
             return
 
         intent = self.intent.predict(text)
         if intent == 'quarrel':
-            message_controller.disable_all_plugins(msg)
             self.logger.info('quarrel detected, quanjia')
             reply = self.quanjia(text)
             if reply:
                 await room.say(reply, [talker.contact_id])
 
         if intent == 'complain':
-            message_controller.disable_all_plugins(msg)
             self.logger.info('complain detected')
             await room.say('在了，在了，不好意思，您别着急哈~ 您的意见我已经转告群主啦，群管不易，还望您多多包涵[流泪]', [talker.contact_id])
 
-        if await msg.mention_self() or intent in ['complain', 'question']:
-            message_controller.disable_all_plugins(msg)
-            self.logger.info(f'{talker.name} in {topic} asked: {text}')
+        if intent in ['notinterest', 'continuetosay', 'challenge', 'challenge_bye']:
+            return
+
+        if await msg.mention_self() and intent == 'praise':
+            await room.say('谢谢您，我会更加努力的[害羞]', [talker.contact_id])
+            return
+
+        if await msg.mention_self() and intent == 'greeting':
+            await room.say('嗯，您好，在的，有问题可以@我直接提问哦', [talker.contact_id])
+            return
+
+        if await msg.mention_self() and intent == 'bye':
+            await room.say('好的呢[愉快]', [talker.contact_id])
+            return
+
         # 7. smart FAQ
+        if await msg.mention_self() or intent in ['complain', 'question']:
+            self.logger.info(f'{talker.name} in {topic} asked: {text}')
             answered = False
             if self.qun_faq[self.room_dict[room.room_id]]:
                 similatiry_list = [[text, key] for key in list(self.qun_faq[self.room_dict[room.room_id]].keys())]
