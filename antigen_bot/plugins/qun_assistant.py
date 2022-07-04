@@ -280,6 +280,8 @@ class QunAssistantPlugin(WechatyPlugin):
         if intent == 'complain':
             self.logger.info('complain detected')
             await room.say('在了，在了，不好意思，您别着急哈~ 您的意见我已经转告群主啦，群管不易，还望您多多包涵[流泪]', [talker.contact_id])
+            await owner.say(f'{talker.name}在{topic}群中抱怨：{text}，请您及时入群处理 --QunAssistant')
+            return
 
         if intent in ['notinterest', 'continuetosay', 'challenge', 'challenge_bye']:
             return
@@ -297,7 +299,7 @@ class QunAssistantPlugin(WechatyPlugin):
             return
 
         # 7. smart FAQ
-        if await msg.mention_self() or intent in ['complain', 'question']:
+        if await msg.mention_self() or intent == 'complain':
             self.logger.info(f'{talker.name} in {topic} asked: {text}')
             answered = False
             if self.qun_faq[self.room_dict[room.room_id]]:

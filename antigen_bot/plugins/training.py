@@ -73,23 +73,26 @@ class TrainingPlugin(WechatyPlugin):
                 message_controller.disable_all_plugins(msg)
                 self.training_room[room.room_id] = {'pre_prompt': '', 'des': '', 'trainer': '', 'turn': []}
                 await room.say('AI培训演员就位，请问需要我这次扮演什么？刺头还是怨妇？', [talker.contact_id])
+                return
 
             if text == '刺头':
                 message_controller.disable_all_plugins(msg)
                 self.training_room[room.room_id] = {'pre_prompt': '你叫李二牛，今年四十多岁，是个蛮不讲理的人。你所在的小区因突发疫情需要暂时封闭，但你执意出去与朋友聚会，于是你来到居委会，决定与工作人员好好理论一番。',
                                                     'des': '情景对话模拟训练已开始。\n我扮演一个蛮不讲理的小区居民，我们所在的小区因突发疫情需要暂时封闭，而我执意要外出与朋友聚会，我现在来到居委会，您刚好作为工作人员接待我。', 'trainer': '', 'turn': []}
                 await room.say('好的，刺头模式已启动，请指定测试人员', [talker.contact_id])
+                return
 
             if text == '怨妇':
                 message_controller.disable_all_plugins(msg)
                 self.training_room[room.room_id] = {'pre_prompt': '你叫王翠花，是个四十多岁的家庭妇女，你总是怀疑丈夫有外遇，但你也没有确凿证据，于是你来到居委会找工作人员寻求帮助。',
                                                     'des': '情景对话模拟训练已开始。\n我扮演一个四十多岁的家庭妇女，我怀疑我的丈夫有外遇，这让我心神不宁。于是我来到居委会寻求帮助，其实我并不确定这事儿是否归居委会管……您刚好作为工作人员接待我。', 'trainer': '', 'turn': []}
                 await room.say('好的，怨妇模式已启动，请指定测试人员', [talker.contact_id])
+                return
 
             if self.bot.user_self() in await msg.mention_list() and room.room_id in self.training_room:
                 message_controller.disable_all_plugins(msg)
                 for contact in await room.member_list():
-                    if contact.contact_id == self.bot.user_self().contact_id:
+                    if contact == self.bot.user_self() or contact.contact_id in self.directors:
                         continue
                     else:
                         self.training_room[room.room_id]['trainer'] = contact.contact_id
