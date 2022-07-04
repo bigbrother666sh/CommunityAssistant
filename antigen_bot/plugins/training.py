@@ -86,7 +86,7 @@ class TrainingPlugin(WechatyPlugin):
                                                     'des': '情景对话模拟训练已开始。\n我扮演一个四十多岁的家庭妇女，我怀疑我的丈夫有外遇，这让我心神不宁。于是我来到居委会寻求帮助，其实我并不确定这事儿是否归居委会管……您刚好作为工作人员接待我。', 'trainer': '', 'turn': []}
                 await room.say('好的，怨妇模式已启动，请指定测试人员', [talker.contact_id])
 
-            if self.bot.user_self() in await msg.mention_list() and self.training_room[room.room_id]:
+            if self.bot.user_self() in await msg.mention_list() and room.room_id in self.training_room:
                 message_controller.disable_all_plugins(msg)
                 for contact in await room.member_list():
                     if contact.contact_id == self.bot.user_self().contact_id:
