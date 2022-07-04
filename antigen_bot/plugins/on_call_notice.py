@@ -26,7 +26,7 @@ class OnCallNoticePlugin(WechatyPlugin):
         "[核酸提醒](https://github.com/ShanghaiITVolunteer/AntigenWechatBot/issues/25#issuecomment-1104823018)"等需求场景
         3. 配置文件：.wechaty/on_call_notice.json(存储keyword已经对应的回复文本（必须）、群聊名称pre_fix(必须）、回复媒体（存贮在media/）以及延迟时间）
     """
-    def __init__(self, options: Optional[WechatyPluginOptions] = None, configs: str = 'CA_configs'):
+    def __init__(self, options: Optional[WechatyPluginOptions] = None, configs: str = 'CAconfigs'):
         super().__init__(options)
         # 1. init the config file
         self.config_url = configs

@@ -28,7 +28,7 @@ class QunAssistantPlugin(WechatyPlugin):
     2、群内敏感词监测
     3、智能FAQ
     """
-    def __init__(self, options: Optional[WechatyPluginOptions] = None, configs: str = 'CA_configs'):
+    def __init__(self, options: Optional[WechatyPluginOptions] = None, configs: str = 'CAconfigs'):
         super().__init__(options)
         # 1. init the config file
         self.config_url = configs
@@ -270,7 +270,7 @@ class QunAssistantPlugin(WechatyPlugin):
             await room.say('请勿发表不当言论，谢谢配合', [talker.contact_id])
             return
 
-        intent = self.intent.predict(text)
+        intent, conf = self.intent.predict(text)
         if intent == 'quarrel':
             self.logger.info('quarrel detected, quanjia')
             reply = self.quanjia(text)
@@ -392,7 +392,7 @@ class QunAssistantPlugin(WechatyPlugin):
             return
 
         mentionlist = [contact.contact_id for contact in invitees]
-        path = os.getcwd() + '\media\welcome.jpeg'
+        path = os.getcwd() + '/media/welcome.jpeg'
         filebox = FileBox.from_file(path)
         await room.say(filebox)
         await room.say("欢迎入群，请先看群公告并遵守群主相关规定，否则我会跟你杠到底哦~", mentionlist)

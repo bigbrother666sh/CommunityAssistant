@@ -21,7 +21,7 @@ class TrainingPlugin(WechatyPlugin):
     社群工作人员培训模块
     这里ai会扮演两个角色：1、很难缠的刺头；2、要死要活的怨妇
     """
-    def __init__(self, options: Optional[WechatyPluginOptions] = None, configs: str = 'CA_configs'):
+    def __init__(self, options: Optional[WechatyPluginOptions] = None, configs: str = 'CAconfigs'):
         super().__init__(options)
         # 1. init the config file
         self.config_url = configs
@@ -147,7 +147,7 @@ class TrainingPlugin(WechatyPlugin):
             self.logger.info(f'测试人员：{talker.name} 因发表不当言论挑战失败，对话轮次：{len(self.training_room[room.room_id]["turn"])}')
             return
 
-        intent = self.intent.predict(text)
+        intent, conf = self.intent.predict(text)
         if intent in ['complain', 'challenge', 'challenge_bye', 'quarrel']:
             await room.say('侦测到您未合理控制谈话情绪，本次挑战失败', [talker.contact_id])
             await room.say(f'测试人员：{talker.name} 因未合理控制情绪挑战失败，情绪侦测：{intent}， 对话轮次：{len(self.training_room[room.room_id]["turn"])}',
@@ -179,7 +179,7 @@ class TrainingPlugin(WechatyPlugin):
             self.logger.warning(f'Yuan may out of service, {reply}')
             return
 
-        intent = self.intent.predict(reply)
+        intent, conf = self.intent.predict(reply)
         if intent in ['notinterest', 'bye']:
             await room.say('恭喜您，通过测试，成绩为合格，这意味着您可以应付这种情况', [talker.contact_id])
             await room.say(
