@@ -16,7 +16,9 @@ from wechaty_puppet import get_logger
 from datetime import datetime
 from antigen_bot.message_controller import message_controller
 from utils.DFAFilter import DFAFilter
+from utils.rasaintent import RasaIntent
 from paddlenlp import Taskflow
+from antigen_bot.inspurai import Yuan
 
 
 class QunAssistantPlugin(WechatyPlugin):
@@ -81,6 +83,18 @@ class QunAssistantPlugin(WechatyPlugin):
         self.gfw = DFAFilter()
         self.gfw.parse()
         self.sim = Taskflow("text_similarity")
+        self.intent = RasaIntent()
+        self.yuan = Yuan(engine='dialog',
+                         temperature=1,
+                         max_tokens=150,
+                         input_prefix='',
+                         input_suffix='',
+                         output_prefix='',
+                         output_suffix='',
+                         append_output_prefix_to_query=False,
+                         topK=3,
+                         topP=0.9,
+                         frequencyPenalty=1.2, )
         self.logger.info(f'QunAssisstant plugin init success.')
 
     async def init_plugin(self, wechaty: Wechaty) -> None:
@@ -147,7 +161,7 @@ class QunAssistantPlugin(WechatyPlugin):
                 json.dump(self.qunzhu, f, ensure_ascii=False)
             with open(os.path.join(self.config_url, 'verify_codes.json'), 'w', encoding='utf-8') as f:
                 json.dump(self.verify_codes, f, ensure_ascii=False)
-            await msg.say("hi，很高兴为您服务，请拉我到需要我协助管理的群内，并@我说：觉醒 -- QunAssistant")
+            await msg.say("hi，很高兴为您服务，请拉我到需要我协助管理的群内，并@我说：小助理 -- QunAssistant")
             return
 
         if msg.type() == MessageType.MESSAGE_TYPE_CONTACT:
@@ -214,7 +228,7 @@ class QunAssistantPlugin(WechatyPlugin):
                     await room.say("您不是该群群主，出于隐私保护，您无法在本群中启动我的功能——群助理插件")
                     return
 
-                if text == '觉醒':
+                if text == '小助理':
                     message_controller.disable_all_plugins(msg)
                     self.room_dict[room.room_id] = talker.contact_id
                     with open(os.path.join(self.config_url, 'room_dict.json'), 'w', encoding='utf-8') as f:
@@ -228,7 +242,7 @@ class QunAssistantPlugin(WechatyPlugin):
                         del self.room_dict[room.room_id]
                         with open(os.path.join(self.config_url, 'room_dict.json'), 'w', encoding='utf-8') as f:
                             json.dump(self.qunzhu, f, ensure_ascii=False)
-                    await talker.say(f'您已在{topic}群中取消了AI助理，如需再次启用，请在群中@我说：觉醒')
+                    await talker.say(f'您已在{topic}群中取消了AI助理，如需再次启用，请在群中@我说：小助理')
 
             if re.match(r"^「.+」\s-+\s.+", text, re.S):  # 判断是否为引用消息
                 message_controller.disable_all_plugins(msg)
@@ -242,7 +256,6 @@ class QunAssistantPlugin(WechatyPlugin):
             return
 
        # 6. 处理群成员信息，目前仅限FAQ，
-       # Todo：后面会增加intent判断，根据intent调用不同function【如安抚、劝架等】
         if room.room_id not in self.room_dict:
             return
 
@@ -252,53 +265,61 @@ class QunAssistantPlugin(WechatyPlugin):
         text = text.strip().replace('\n', '，')
 
         if self.gfw.filter(text):
+            message_controller.disable_all_plugins(msg)
             self.logger.info(f'{text} is filtered, for the reason of {self.gfw.filter(text)}')
             await room.say('请勿发表不当言论，谢谢配合', [talker.contact_id])
             return
 
-        if not await msg.mention_self():
-            return
-        """
-        intent here
-        after this part be finished, no mention_self needed
-        侦测到匹配的意图（得分超过0.6），调用相应的函数；如果是@bot，则强制会选择一个得分最高的意图去支持（遇到nlu_fallback，会反问澄清）
-        """
-        message_controller.disable_all_plugins(msg)
-        self.logger.info(f'{talker.name} in {topic} asked: {text}')
+        intent = self.intent.predict(text)
+        if intent == 'quarrel':
+            message_controller.disable_all_plugins(msg)
+            self.logger.info('quarrel detected, quanjia')
+            reply = self.quanjia(text)
+            if reply:
+                await room.say(reply, [talker.contact_id])
+
+        if intent == 'complain':
+            message_controller.disable_all_plugins(msg)
+            self.logger.info('complain detected')
+            await room.say('在了，在了，不好意思，您别着急哈~ 您的意见我已经转告群主啦，群管不易，还望您多多包涵[流泪]', [talker.contact_id])
+
+        if await msg.mention_self() or intent in ['complain', 'question']:
+            message_controller.disable_all_plugins(msg)
+            self.logger.info(f'{talker.name} in {topic} asked: {text}')
         # 7. smart FAQ
-        answered = False
-        if self.qun_faq[self.room_dict[room.room_id]]:
-            similatiry_list = [[text, key] for key in list(self.qun_faq[self.room_dict[room.room_id]].keys())]
-            similatiry = self.sim(similatiry_list)
-            for i in range(len(similatiry)-1, -1, -1):
-                if similatiry[i]['similarity'] > 0.88:
-                    self.logger.info(f"found matched text: {similatiry[i]['text2']}")
-                    await room.say(self.qun_faq[self.room_dict[room.room_id]][similatiry[i]['text2']], [talker.contact_id])
-                    await room.say("以上答案来自群主历史回复，仅供参考哦~", [talker.contact_id])
-                    answered = True
-                    break
+            answered = False
+            if self.qun_faq[self.room_dict[room.room_id]]:
+                similatiry_list = [[text, key] for key in list(self.qun_faq[self.room_dict[room.room_id]].keys())]
+                similatiry = self.sim(similatiry_list)
+                for i in range(len(similatiry)-1, -1, -1):
+                    if similatiry[i]['similarity'] > 0.88:
+                        self.logger.info(f"found matched text: {similatiry[i]['text2']}")
+                        await room.say(self.qun_faq[self.room_dict[room.room_id]][similatiry[i]['text2']], [talker.contact_id])
+                        await room.say("以上答案来自群主历史回复，仅供参考哦~", [talker.contact_id])
+                        answered = True
+                        break
 
-        answer = []
-        if self.qun_meida_faq[self.room_dict[room.room_id]]:
-            similatiry_list = [[text, key] for key in list(self.qun_meida_faq[self.room_dict[room.room_id]].keys())]
-            similatiry = self.sim(similatiry_list)
-            for i in range(len(similatiry)-1, -1, -1):
-                if similatiry[i]['similarity'] > 0.88:
-                    self.logger.info(f"found matched text: {similatiry[i]['text2']}")
-                    answer = self.qun_meida_faq[self.room_dict[room.room_id]][similatiry[i]['text2']]
-                    break
+            answer = []
+            if self.qun_meida_faq[self.room_dict[room.room_id]]:
+                similatiry_list = [[text, key] for key in list(self.qun_meida_faq[self.room_dict[room.room_id]].keys())]
+                similatiry = self.sim(similatiry_list)
+                for i in range(len(similatiry)-1, -1, -1):
+                    if similatiry[i]['similarity'] > 0.88:
+                        self.logger.info(f"found matched text: {similatiry[i]['text2']}")
+                        answer = self.qun_meida_faq[self.room_dict[room.room_id]][similatiry[i]['text2']]
+                        break
 
-        if answer:
-            await room.say(f'对于您说的“{text}”，群主之前有回答，请参考如下', [talker.contact_id])
-            for _answer in answer:
-                await self.forward_message(_answer, room)
+            if answer:
+                await room.say(f'对于您说的“{text}”，群主之前有回答，请参考如下', [talker.contact_id])
+                for _answer in answer:
+                    await self.forward_message(_answer, room)
 
-        if not answer and answered is False:
-            await room.say("抱歉这个问题我没找到答案，已私信通知群主", [talker.contact_id, self.room_dict[room.room_id]])
-            try:
-                await owner.say(f'{talker.name}在{topic}群中提问了：{text}，我的记忆中没有这个答案，请您及时群内引用回复，或者录入媒体答案 --QunAssistant')
-            except Exception as e:
-                self.logger.error(e)
+            if not answer and answered is False:
+                await room.say("抱歉这个问题我没找到答案，已私信通知群主", [talker.contact_id, self.room_dict[room.room_id]])
+                try:
+                    await owner.say(f'{talker.name}在{topic}群中提问了：{text}，我的记忆中没有这个答案，请您及时群内引用回复，或者录入媒体答案 --QunAssistant')
+                except Exception as e:
+                    self.logger.error(e)
 
         # 最后检查下talker的群昵称状态，并更新下talker在bot的备注
         alias = await room.alias(talker)
@@ -329,6 +350,20 @@ class QunAssistantPlugin(WechatyPlugin):
                     print(receive_id + " have rejected" + amount + " from " + from_id + " .transaction abort.")
         return
     """
+    def quanjia(self, text: str) -> str:
+        prompt = f"你所在的群是小区住户聊天群，群成员都是同住一个小区的邻居，平时大家都很和睦。今天你突然看到有人在群里争吵说：“{text}” ，你赶忙劝对方说：“"
+        self.logger.info(prompt)
+        for i in range(7):
+            reply = self.yuan.submit_API(prompt, trun="”")
+            if not reply or reply == "somethingwentwrongwithyuanservice" or reply == "请求异常，请重试":
+                self.logger.warning(f'generation failed {str(i + 1)} times.')
+                continue
+
+        if not reply or reply == "somethingwentwrongwithyuanservice" or reply == "请求异常，请重试":
+            self.logger.warning(f'Yuan may out of service, {reply}')
+            return ''
+
+        return reply
 
     async def on_room_join(self, room: Room, invitees: List[Contact], inviter: Contact, date: datetime) -> None:
         """handle the event when someone enter the room
