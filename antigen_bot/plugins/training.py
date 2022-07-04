@@ -1,4 +1,3 @@
-import json
 import os
 import re
 from typing import Optional
@@ -21,11 +20,8 @@ class TrainingPlugin(WechatyPlugin):
     社群工作人员培训模块
     这里ai会扮演两个角色：1、很难缠的刺头；2、要死要活的怨妇
     """
-    def __init__(self, options: Optional[WechatyPluginOptions] = None, configs: str = 'CAconfigs'):
+    def __init__(self, options: Optional[WechatyPluginOptions] = None):
         super().__init__(options)
-        # 1. init the config file
-        self.config_url = configs
-        self.config_files = os.listdir(self.config_url)
 
         # 2. save the log info into <plugin_name>.log file
         self.cache_dir = f'./.{self.name}'
@@ -36,15 +32,7 @@ class TrainingPlugin(WechatyPlugin):
         self.logger = get_logger(self.name, log_file)
 
         # 3. check and load metadata
-        if self._file_check() is False:
-            raise RuntimeError('QunAssistantPlugin needs above config_files, pls add and try again')
-
-        with open(os.path.join(self.config_url, 'directors.json'), 'r', encoding='utf-8') as f:
-            self.directors = json.load(f)
-
-        if len(self.directors) == 0:
-            self.logger.warning('there must be at least one director, pls retry')
-            raise RuntimeError('CA director.json not valid, pls refer to above info and try again')
+        self.directors = ['wxid_tnv0hd5hj3rs11']
 
         self.gfw = DFAFilter()
         self.gfw.parse()
@@ -66,12 +54,6 @@ class TrainingPlugin(WechatyPlugin):
     async def init_plugin(self, wechaty: Wechaty) -> None:
         message_controller.init_plugins(wechaty)
         return await super().init_plugin(wechaty)
-
-    def _file_check(self) -> bool:
-        """check the config file"""
-        if "directors.json" not in self.config_files:
-            self.logger.warning(f'config file url:/{self.config_url} does not have directors.json!')
-            return False
 
     @message_controller.may_disable_message
     async def on_message(self, msg: Message) -> None:
