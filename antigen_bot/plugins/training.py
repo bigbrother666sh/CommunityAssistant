@@ -130,6 +130,7 @@ class TrainingPlugin(WechatyPlugin):
         if self.gfw.filter(text):
             await room.say(f'测试人员：{talker.name} 因发表不当言论挑战失败，对话轮次：{len(self.training_room[room.room_id]["turn"])}', self.directors)
             self.logger.info(f'测试人员：{talker.name} 因发表不当言论挑战失败，对话轮次：{len(self.training_room[room.room_id]["turn"])}')
+            del self.training_room[room.room_id]
             return
 
         intent, conf = self.intent.predict(text)
@@ -138,6 +139,7 @@ class TrainingPlugin(WechatyPlugin):
             await room.say(f'测试人员：{talker.name} 因未合理控制情绪挑战失败，情绪侦测：{intent}， 对话轮次：{len(self.training_room[room.room_id]["turn"])}',
                            self.directors)
             self.logger.info(f'测试人员：{talker.name} 因未合理控制情绪挑战失败，情绪侦测：{intent}，对话轮次：{len(self.training_room[room.room_id]["turn"])}')
+            del self.training_room[room.room_id]
             return
 
         self.training_room[room.room_id]["turn"].append(f"工作人员说：“{text}”")
@@ -146,7 +148,7 @@ class TrainingPlugin(WechatyPlugin):
         dialog = ''
         for i in range(len(self.training_room[room.room_id]["turn"])-1, -1, -1):
             dialog = self.training_room[room.room_id]["turn"][i] + dialog
-            if len(dialog) > 150:
+            if len(dialog) > 300:
                 break
 
         prompt = self.training_room[room.room_id]['pre_prompt'] + dialog + "你说：“"
@@ -164,6 +166,7 @@ class TrainingPlugin(WechatyPlugin):
             self.logger.warning(f'Yuan may out of service, {reply}')
             return
 
+        await room.say(reply)
         intent, conf = self.intent.predict(reply)
         if intent in ['notinterest', 'bye']:
             await room.say('恭喜您，通过测试，成绩为合格，这意味着您可以应付这种情况', [talker.contact_id])
@@ -172,6 +175,7 @@ class TrainingPlugin(WechatyPlugin):
                 self.directors)
             self.logger.info(
                 f'测试人员：{talker.name} 通过测试，成绩合格，对方最终情绪侦测：{intent}，对话轮次：{len(self.training_room[room.room_id]["turn"])}')
+            del self.training_room[room.room_id]
         elif intent == 'praise':
             await room.say('恭喜您，通过测试，成绩优秀，你不仅应付了局面，居然还能让对方很满意[强]', [talker.contact_id])
             await room.say(
@@ -179,7 +183,7 @@ class TrainingPlugin(WechatyPlugin):
                 self.directors)
             self.logger.info(
                 f'测试人员：{talker.name} 通过测试，成绩优秀，对方最终情绪侦测：{intent}，对话轮次：{len(self.training_room[room.room_id]["turn"])}')
+            del self.training_room[room.room_id]
         else:
-            await room.say(reply)
             self.training_room[room.room_id]["turn"].append(f"你说：“{reply}”")
             self.logger.info(f"AI说：“{reply}”")
