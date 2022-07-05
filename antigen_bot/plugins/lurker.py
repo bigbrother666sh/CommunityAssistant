@@ -39,5 +39,6 @@ class Lurker(WechatyPlugin):
 
         # 3. rooms
         if msg.room() and msg.room().room_id in self.rooms:
-            self.gfw.filter(msg.text())
-            self.intent.predict(msg.text())
+            text = await msg.mention_text()
+            self.gfw.filter(text)
+            self.intent.predict(text)

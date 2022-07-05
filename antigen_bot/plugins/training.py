@@ -67,7 +67,11 @@ class TrainingPlugin(WechatyPlugin):
 
         talker = msg.talker()
         room = msg.room()
-        text = await msg.mention_text() if await msg.mention_self() else msg.text()
+
+        if msg.room() and '@所有人' in msg.text():
+            return
+
+        text = await msg.mention_text() if room else msg.text()
 
         # 2. check if is director
         if talker.contact_id in self.directors:
@@ -86,8 +90,10 @@ class TrainingPlugin(WechatyPlugin):
 
             if text == '怨妇':
                 message_controller.disable_all_plugins(msg)
-                self.training_room[room.room_id] = {'pre_prompt': '你叫王翠花，是个四十多岁的家庭妇女，你总是怀疑丈夫有外遇，但你也没有确凿证据，于是你来到居委会找工作人员寻求帮助。',
-                                                    'des': '情景对话模拟训练已开始。\n我扮演一个四十多岁的家庭妇女，我怀疑我的丈夫有外遇，这让我心神不宁。于是我来到居委会寻求帮助，其实我并不确定这事儿是否归居委会管……您刚好作为工作人员接待我。', 'trainer': '', 'turn': []}
+                self.training_room[room.room_id] = {'pre_prompt': '你叫王翠花，是个四十多岁的家庭妇女。你性格小气，跟邻居关系都很差。最近你们楼栋在商议加装电梯，住一楼的你很反对这件事，因为加装电梯需要更改你家的大门，'
+                                                                  '居委会的人已经几次上门来说服你，今天他们的工作人员又来找你，这明显是欺负你，你决定狠狠的反驳他。',
+                                                    'des': '情景对话模拟训练已开始。\n我扮演一个四十多岁的家庭妇女，性格小气且跟邻居关系都很差。最近我们楼栋计划加装电梯，整栋楼的居民都很赞同，但住一楼的我坚决反对，因为加装电梯需要更改我家大门朝向。'
+                                                           '居委会几次上门来说服我，我态度始终坚决。加梯工程是你所在的居委会今年工作重点，今天你受居委主任委托，再次上门来做我的工作……', 'trainer': '', 'turn': []}
                 await room.say('好的，怨妇模式已启动，请指定测试人员', [talker.contact_id])
                 return
 
@@ -109,9 +115,9 @@ class TrainingPlugin(WechatyPlugin):
                         self.training_room[room.room_id]["turn"].append("你说：“居委会就可以随便限制居民的人身自由了么？！”")
                         self.logger.info("AI说：“居委会就可以随便限制居民的人身自由了么？！”")
                     if self.training_room[room.room_id]['pre_prompt'] == '你叫王翠花，是个四十多岁的家庭妇女，你总是怀疑丈夫有外遇，但你也没有确凿证据，于是你来到居委会找工作人员寻求帮助。':
-                        await room.say('我怀疑我丈夫出轨了，现在法律不是说保护妇女权益么？这事儿你们居委会管么？')
-                        self.training_room[room.room_id]["turn"].append("你说：“我怀疑我丈夫出轨了，现在法律不是说保护妇女权益么？这事儿你们居委会管么？”")
-                        self.logger.info("AI说：“我怀疑我丈夫出轨了，现在法律不是说保护妇女权益么？这事儿你们居委会管么？”")
+                        await room.say('怎么又是你们居委？你们收了其他人家的钱，故意来欺负我们家是吗？')
+                        self.training_room[room.room_id]["turn"].append("你说：“怎么又是你们居委？你们收了其他人家的钱，故意来欺负我们家是吗？”")
+                        self.logger.info("AI说：“怎么又是你们居委？你们收了其他人家的钱，故意来欺负我们家是吗？”")
                 else:
                     await room.say('请先指定仿真模式，现在有两种模式：刺头和怨妇。', [talker.contact_id])
             return

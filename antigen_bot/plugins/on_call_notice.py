@@ -204,6 +204,9 @@ class OnCallNoticePlugin(WechatyPlugin):
             await self.director_message(msg)
             return
 
+        if msg.room() and '@所有人' in msg.text():
+            return
+
         if (talker.contact_id in self.auth.keys()) and ("撤销" in msg.text()) and (await msg.mention_self()):
             if msg.room().room_id in self.auth[talker.contact_id].get(date, []):
                 self.auth[talker.contact_id][date].remove(msg.room().room_id)
@@ -251,6 +254,7 @@ class OnCallNoticePlugin(WechatyPlugin):
 
         # 管理员群发功能
         if talker.contact_id in self.data.keys() and not msg.room() and "群转发" in msg.text():
+            message_controller.disable_all_plugins(msg)
             pre_fix = self.data[talker.contact_id]['pre_fix']
             if not pre_fix:
                 await msg.say("还未配置所属小区，通知未触发")
@@ -258,6 +262,7 @@ class OnCallNoticePlugin(WechatyPlugin):
 
             regex = re.compile(r"{0}.*".format(pre_fix))
             self.listen_to_forward[talker.contact_id] = [regex, talker.contact_id, talker.contact_id]
+            await msg.say("请将需要转发的内容直接发到这里")
             return
 
         # 3. 判断是否来自工作群或者指定联系人的消息（优先判定群）
@@ -290,9 +295,9 @@ class OnCallNoticePlugin(WechatyPlugin):
         if token:
             spec = self.data[token]
         else:
-            await msg.say("呵呵，你没有权限哦~")
             return
 
+        message_controller.disable_all_plugins(msg)
         words = re.split(r"\s+?", text)
 
         # 4. 检查msg.text()是否包含关键词
@@ -358,6 +363,7 @@ class OnCallNoticePlugin(WechatyPlugin):
 
         if "转发" in words:
             self.listen_to_forward[talker.contact_id] = [regex, token, id]
+            await msg.say("请将需要转发的内容直接发到这里")
             #这一步分别存储 转发规则、授权来源和对话号，后二者用于后续鉴权
             return
 

@@ -172,6 +172,8 @@ class QunAssistantPlugin(WechatyPlugin):
             return
 
         if msg.room():
+            if '@所有人' in msg.text():
+                return
             text = await msg.mention_text()
 
         # 4. handle the pre-record meida faq
