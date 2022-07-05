@@ -1,5 +1,6 @@
 import requests
 import json
+import os
 
 
 class Zeus:
@@ -7,9 +8,9 @@ class Zeus:
     ai.baidu.com/https://ai.baidu.com/ai-doc/wenxin/Il3cbftp9
     Ernie-ViLG
     """
-    def __init__(self, access_token):
+    def __init__(self):
         self.url = "https://wenxin.baidu.com/younger/portal/api/rest/1.0/ernie/3.0/zeus"
-        self.access_token = access_token
+        self.access_token = os.environ.get('baidu_access_token')
 
     def get_response(self, text):
         payload = {
