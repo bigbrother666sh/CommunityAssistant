@@ -110,11 +110,11 @@ class TrainingPlugin(WechatyPlugin):
                     await room.say(f'{self.training_room[room.room_id]["des"]}', [self.training_room[room.room_id]["trainer"]])
                     await room.say('提醒：对话中有时我会故意沉默，您可以继续说，不必等待。', [self.training_room[room.room_id]["trainer"]])
                     self.logger.info(f'director has start the training process, detail:{self.training_room[room.room_id]}')
-                    if self.training_room[room.room_id]['pre_prompt'] == '你叫李二牛，今年四十多岁，是个蛮不讲理的人。你所在的小区因突发疫情需要暂时封闭，但你执意出去与朋友聚会，于是你来到居委会，决定与工作人员好好理论一番。':
+                    if self.training_room[room.room_id]['pre_prompt'].startwith('你叫李二牛'):
                         await room.say('居委会就可以随便限制居民的人身自由了么？！')
                         self.training_room[room.room_id]["turn"].append("你说：“居委会就可以随便限制居民的人身自由了么？！”")
                         self.logger.info("AI说：“居委会就可以随便限制居民的人身自由了么？！”")
-                    if self.training_room[room.room_id]['pre_prompt'] == '你叫王翠花，是个四十多岁的家庭妇女，你总是怀疑丈夫有外遇，但你也没有确凿证据，于是你来到居委会找工作人员寻求帮助。':
+                    if self.training_room[room.room_id]['pre_prompt'].startwith('你叫王翠花'):
                         await room.say('怎么又是你们居委？你们收了其他人家的钱，故意来欺负我们家是吗？')
                         self.training_room[room.room_id]["turn"].append("你说：“怎么又是你们居委？你们收了其他人家的钱，故意来欺负我们家是吗？”")
                         self.logger.info("AI说：“怎么又是你们居委？你们收了其他人家的钱，故意来欺负我们家是吗？”")
