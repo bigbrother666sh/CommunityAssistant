@@ -136,7 +136,7 @@ class TrainingPlugin(WechatyPlugin):
             return
 
         intent, conf = self.intent.predict(text)
-        if intent in ['complain', 'challenge', 'challenge_bye', 'quarrel']:
+        if intent in ['complain', 'challenge', 'challenge_bye', 'quarrel', 'complain_question']:
             await room.say('侦测到您未合理控制谈话情绪，本次挑战失败', [talker.contact_id])
             await room.say(f'测试人员：{talker.name} 因未合理控制情绪挑战失败，情绪侦测：{intent}， 对话轮次：{len(self.training_room[room.room_id]["turn"])}',
                            self.directors)

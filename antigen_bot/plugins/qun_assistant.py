@@ -96,7 +96,7 @@ class QunAssistantPlugin(WechatyPlugin):
                          topK=3,
                          topP=0.9,
                          frequencyPenalty=1.2, )
-        self.zeus = Zeus()
+        #self.zeus = Zeus()
         self.logger.info(f'QunAssisstant plugin init success.')
 
     async def init_plugin(self, wechaty: Wechaty) -> None:
@@ -301,7 +301,7 @@ class QunAssistantPlugin(WechatyPlugin):
             return
 
         # 7. smart FAQ
-        if await msg.mention_self() or intent == 'complain':
+        if await msg.mention_self() or intent in ['complain_question', 'question']:
             self.logger.info(f'{talker.name} in {topic} asked: {text}')
             answered = False
             if self.qun_faq[self.room_dict[room.room_id]]:
