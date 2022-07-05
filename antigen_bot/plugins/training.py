@@ -12,8 +12,8 @@ from wechaty_puppet import get_logger
 from antigen_bot.message_controller import message_controller
 from utils.DFAFilter import DFAFilter
 from utils.rasaintent import RasaIntent
-#from antigen_bot.inspurai import Yuan
-from antigen_bot.Ernie.Zeus import Zeus
+from antigen_bot.inspurai import Yuan
+#from antigen_bot.Ernie.Zeus import Zeus
 
 
 class TrainingPlugin(WechatyPlugin):
@@ -38,7 +38,6 @@ class TrainingPlugin(WechatyPlugin):
         self.gfw = DFAFilter()
         self.gfw.parse()
         self.intent = RasaIntent()
-        """
         self.yuan = Yuan(engine='dialog',
                          temperature=1,
                          max_tokens=150,
@@ -50,8 +49,7 @@ class TrainingPlugin(WechatyPlugin):
                          topK=3,
                          topP=0.9,
                          frequencyPenalty=1.2, )
-        """
-        self.zeus = Zeus()
+        #self.zeus = Zeus()
         self.training_room = {}
         self.logger.info(f'Training plugin init success.')
 
@@ -159,8 +157,8 @@ class TrainingPlugin(WechatyPlugin):
         self.logger.info(prompt)
 
         for i in range(7):
-            #reply = self.yuan.submit_API(prompt, trun="”")
-            reply = self.zeus.get_response(prompt)
+            reply = self.yuan.submit_API(prompt, trun="”")
+            #reply = self.zeus.get_response(prompt)
             if not reply or reply == "somethingwentwrongwithyuanservice" or reply == "请求异常，请重试":
                 self.logger.warning(f'generation failed {str(i + 1)} times.')
                 continue

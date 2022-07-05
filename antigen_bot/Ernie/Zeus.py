@@ -43,7 +43,7 @@ if __name__ == "__main__":
     print("====Ernie Zeus Test====")
     print("输入access_token")
     access_token = input("access_token：")
-    zeus = Zeus(access_token)
+    zeus = Zeus()
 
     while True:
         print("输入Q退出")

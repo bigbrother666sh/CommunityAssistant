@@ -18,8 +18,8 @@ from antigen_bot.message_controller import message_controller
 from utils.DFAFilter import DFAFilter
 from utils.rasaintent import RasaIntent
 from paddlenlp import Taskflow
-#from antigen_bot.inspurai import Yuan
-from antigen_bot.Ernie.Zeus import Zeus
+from antigen_bot.inspurai import Yuan
+#from antigen_bot.Ernie.Zeus import Zeus
 
 
 class QunAssistantPlugin(WechatyPlugin):
@@ -85,7 +85,6 @@ class QunAssistantPlugin(WechatyPlugin):
         self.gfw.parse()
         self.sim = Taskflow("text_similarity")
         self.intent = RasaIntent()
-        """
         self.yuan = Yuan(engine='dialog',
                          temperature=1,
                          max_tokens=150,
@@ -97,7 +96,6 @@ class QunAssistantPlugin(WechatyPlugin):
                          topK=3,
                          topP=0.9,
                          frequencyPenalty=1.2, )
-        """
         self.zeus = Zeus()
         self.logger.info(f'QunAssisstant plugin init success.')
 
@@ -372,8 +370,8 @@ class QunAssistantPlugin(WechatyPlugin):
         prompt = f"你所在的群是小区住户聊天群，群成员都是同住一个小区的邻居，平时大家都很和睦。今天你突然看到有人在群里争吵说：“{text}” ，你赶忙劝对方说：“"
         self.logger.info(prompt)
         for i in range(7):
-            #reply = self.yuan.submit_API(prompt, trun="”")
-            reply = self.zeus.get_response(prompt)
+            reply = self.yuan.submit_API(prompt, trun="”")
+            #reply = self.zeus.get_response(prompt)
             if not reply or reply == "somethingwentwrongwithyuanservice" or reply == "请求异常，请重试":
                 self.logger.warning(f'generation failed {str(i + 1)} times.')
                 continue
