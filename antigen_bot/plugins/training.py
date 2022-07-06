@@ -177,7 +177,7 @@ class TrainingPlugin(WechatyPlugin):
 
         await room.say(reply)
         intent, conf = self.intent.predict(reply)
-        if intent in ['notinterest', 'bye']:
+        if intent == 'bye':
             await room.say('恭喜您，通过测试，成绩为合格，这意味着您可以应付这种情况', [talker.contact_id])
             await room.say(
                 f'测试人员：{talker.name} 通过测试，成绩合格，对方最终情绪侦测：{intent}， 对话轮次：{len(self.training_room[room.room_id]["turn"])}',
