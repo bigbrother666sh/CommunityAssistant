@@ -245,7 +245,7 @@ class QunAssistantPlugin(WechatyPlugin):
                     if room.room_id in self.room_dict:
                         del self.room_dict[room.room_id]
                         with open(os.path.join(self.config_url, 'room_dict.json'), 'w', encoding='utf-8') as f:
-                            json.dump(self.qunzhu, f, ensure_ascii=False)
+                            json.dump(self.room_dict, f, ensure_ascii=False)
                     await talker.say(f'您已在{topic}群中取消了AI助理，如需再次启用，请在群中@我说：小助理')
 
             if re.match(r"^「.+」\s-+\s.+", text, re.S):  # 判断是否为引用消息
