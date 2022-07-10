@@ -178,11 +178,11 @@ class QunAssistantPlugin(WechatyPlugin):
             if '@所有人' in msg.text():
                 return
             text = await msg.mention_text()
+            attention = True if await msg.mention_self() else False
 
         # 4. handle the pre-record meida faq
         if talker.contact_id in self.listen_to:
             message_controller.disable_all_plugins(msg)
-
             if text == '结束':
                 if self.qun_meida_faq[talker.contact_id].get(self.listen_to[talker.contact_id], []):
                     await msg.say(f'{self.listen_to[talker.contact_id]}的答案已经记录 -- QunAssistant')
@@ -230,7 +230,7 @@ class QunAssistantPlugin(WechatyPlugin):
         owner = await room.owner()
 
         if talker.contact_id in self.qunzhu:
-            if await msg.mention_self():
+            if attention is True:
                 if owner.contact_id != talker.contact_id:
                     await room.say("您不是该群群主，出于隐私保护，您无法在本群中启动我的功能——群助理插件")
                     return
@@ -282,16 +282,19 @@ class QunAssistantPlugin(WechatyPlugin):
         if talker.contact_id in self.room_open_seq[room.room_id]:
             if 'session_id' in self.room_open_seq[room.room_id][talker.contact_id]:
                 await self.further_search(room=room, talker=talker, owner=owner, topic=topic, text=text)
+                del self.room_open_seq[room.room_id][talker.contact_id]
                 return
 
             if time.time() - self.room_open_seq[room.room_id][talker.contact_id]['time'] <= 300:
-                text = self.room_open_seq[room.room_id][talker.contact_id]['text'] + text
+                #text = self.room_open_seq[room.room_id][talker.contact_id]['text'] + text
+                attention = True
             del self.room_open_seq[room.room_id][talker.contact_id]
 
         intent, conf = self.intent.predict(text)
 
         if intent == 'quarrel':
             self.logger.info(f'{talker.name} in {topic} 争吵: {text}')
+            self.logger.info(f'intent: {intent}, conf: {conf}')
             reply = self.quanjia(text)
             if reply:
                 await room.say(reply, [talker.contact_id])
@@ -301,6 +304,7 @@ class QunAssistantPlugin(WechatyPlugin):
 
         if intent == 'question':
             self.logger.info(f'{talker.name} in {topic} 反映问题: {text}')
+            self.logger.info(f'intent: {intent}, conf: {conf}')
             await room.say('居然还有这样的事情[惊讶]，不好意思，您别着急哈~ 您说的的这个问题我已经记录并转告群主啦', [talker.contact_id])
             try:
                 await owner.say(f'{talker.name}在{topic} 群中反映问题：{text} --QunAssistant')
@@ -310,6 +314,7 @@ class QunAssistantPlugin(WechatyPlugin):
 
         if intent == 'angry':
             self.logger.info(f'{talker.name} in {topic} 中情绪激动，说: {text}')
+            self.logger.info(f'intent: {intent}, conf: {conf}')
             await room.say('不好意思，让您生气了，我这就通知群主~ 基层工作不易，还请您理解[流泪]', [talker.contact_id])
             try:
                 await owner.say(f'{talker.name}在{topic} 中情绪激动，说：{text} --QunAssistant')
@@ -319,6 +324,7 @@ class QunAssistantPlugin(WechatyPlugin):
 
         if intent in ['provocate', 'complain']:
             self.logger.info(f'{talker.name} in {topic} 抱怨: {text}')
+            self.logger.info(f'intent: {intent}, conf: {conf}')
             await room.say('您先别着急，气大伤身啊[调皮]\n这个问题我们在处理了，您也可以私信群主了解详情', [talker.contact_id])
             try:
                 await owner.say(f'{talker.name}在{topic} 抱怨: {text} --QunAssistant')
@@ -326,9 +332,11 @@ class QunAssistantPlugin(WechatyPlugin):
                 self.logger.error(e)
             return
 
-        if not await msg.mention_self():
+        if attention is False:
             return
 
+        self.logger.info(f'{talker.name} in {topic} asked: {text}')
+        self.logger.info(f'intent: {intent}, conf: {conf}')
         if intent == 'continuetosay':
             self.room_open_seq[room.room_id][talker.contact_id] = {'text': text, 'time': time.time()}
             await room.say('嗯，我在，您说', [talker.contact_id])
@@ -347,7 +355,6 @@ class QunAssistantPlugin(WechatyPlugin):
             return
 
         # 7. smart FAQ
-        self.logger.info(f'{talker.name} in {topic} asked: {text}')
         answered = False
         if self.qun_faq[self.room_dict[room.room_id]]:
             similatiry_list = [[text, key] for key in list(self.qun_faq[self.room_dict[room.room_id]].keys())]
@@ -374,7 +381,7 @@ class QunAssistantPlugin(WechatyPlugin):
             await room.say(f'对于您说的“{text}”，群主之前有回答，请参考如下', [talker.contact_id])
             for _answer in answer:
                 await self.forward_message(_answer, room)
-        self.logger.info('Media Answered')
+            self.logger.info('Media Answered')
 
         if not answer and answered is False:
             await self.further_search(room=room, talker=talker, owner=owner, topic=topic, text=text)
@@ -392,10 +399,14 @@ class QunAssistantPlugin(WechatyPlugin):
             await room.say('另外提醒您及时按群主要求更改群昵称哦', [talker.contact_id])
 
     async def further_search(self, room: Room, talker: Contact, owner: Contact, topic: str, text: str) -> None:
-        result = self.docfaq.predict(text)
-        if result and result['error_code'] != 0 and result['result']['responses'][0]['actions'][0]['action_id'] != 'Innovation_Bot_failure':
+        session_id = ''
+        if talker.contact_id in self.room_open_seq[room.room_id]:
+            session_id = self.room_open_seq[room.room_id][talker.contact_id].get('session_id', '')
+
+        result = self.docfaq.predict(text, session_id)
+        if result and result['error_code'] == 0 and result['result']['responses'][0]['actions'][0]['action_id'] != 'Innovation_Bot_failure':
             await room.say(result['result']['responses'][0]['actions'][0]['say'], [talker.contact_id])
-            self.logger.info(f"docFAQ--{result['result']['responses'][0]['actions'][0]['say']}\n\n")
+            self.logger.info(f"docFAQ--{result['result']['responses'][0]['actions'][0]['say']}\n")
             if result['result']['responses'][0]['actions'][0]['action_id'] == 'Innovation_Bot_guide':
                 self.room_open_seq[room.room_id][talker.contact_id] = {'text': text, 'time': time.time, 'session_id': result['result']['session_id']}
                 for option in result['result']['responses'][0]['actions'][0]['options']:
@@ -408,9 +419,9 @@ class QunAssistantPlugin(WechatyPlugin):
             except Exception as e:
                 self.logger.error(e)
             if result['result']['responses'][0]['actions'][0]['action_id'] != 'Innovation_Bot_failure':
-                self.logger.error(f'UNIT FAQ failed \n {result}\n\n')
+                self.logger.error(f'UNIT FAQ failed \n {result}\n')
             else:
-                self.logger.warning('no answer found\n\n')
+                self.logger.warning('no answer found\n')
 
     """
     todo 下面是收款追踪功能，团长在群里@AI+开启xxx收款，统计收款（重复发"开启xx收款"会重置收款，目前一个群同时只会追踪一个收款"
@@ -530,4 +541,4 @@ class QunAssistantPlugin(WechatyPlugin):
             }
             await room.say(new_audio_file)
 
-        self.logger.info('Qun_Assistant_Message_Forward_Finish\n\n')
+        self.logger.info('Qun_Assistant_Message_Forward_Finish\n')
