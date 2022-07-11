@@ -81,7 +81,6 @@ class QunAssistantPlugin(WechatyPlugin):
 
         self.qun_meida_faq = {key: {} for key in self.qunzhu}
         self.listen_to = {}
-
         self.gfw = DFAFilter()
         self.gfw.parse()
         self.sim = Taskflow("text_similarity")
@@ -298,6 +297,7 @@ class QunAssistantPlugin(WechatyPlugin):
             reply = self.quanjia(text)
             if reply:
                 await room.say(reply, [talker.contact_id])
+            return
 
         if intent in ['notinterest', 'aichallenge', 'badreply']:
             return
@@ -411,7 +411,7 @@ class QunAssistantPlugin(WechatyPlugin):
                 self.room_open_seq[room.room_id][talker.contact_id] = {'text': text, 'time': time.time, 'session_id': result['result']['session_id']}
                 for option in result['result']['responses'][0]['actions'][0]['options']:
                     await room.say(option['option'])
-                    await room.say('如果引导项中没有您想要的，您也可以进一步补充关键信息，帮助我们为您找到更合适的答案。')
+                await room.say('如果引导项中没有您想要的，您也可以进一步补充关键信息，帮助我们为您找到更合适的答案。')
         else:
             await room.say("抱歉这个问题我没找到答案，已私信通知群主", [talker.contact_id, self.room_dict[room.room_id]])
             try:

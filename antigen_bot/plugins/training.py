@@ -142,7 +142,7 @@ class TrainingPlugin(WechatyPlugin):
             return
 
         intent, conf = self.intent.predict(text)
-        if intent in ['complain', 'challenge', 'challenge_bye', 'quarrel', 'complain_question']:
+        if intent in ['notinterest', 'aichallenge', 'badreply', 'angry', 'provocate', 'complain', 'quarrel']:
             await room.say('侦测到您未合理控制谈话情绪，本次挑战失败', [talker.contact_id])
             await room.say(f'测试人员：{talker.name} 因未合理控制情绪挑战失败，情绪侦测：{intent}， 对话轮次：{len(self.training_room[room.room_id]["turn"])}',
                            self.directors)
@@ -160,7 +160,6 @@ class TrainingPlugin(WechatyPlugin):
                 break
 
         prompt = self.training_room[room.room_id]['pre_prompt'] + dialog + "你说：“"
-        self.logger.info(prompt)
 
         for i in range(7):
             reply = self.yuan.submit_API(prompt, trun="”")
@@ -170,14 +169,16 @@ class TrainingPlugin(WechatyPlugin):
                 continue
             if len(reply) <= 5 or reply not in ''.join(self.training_room[room.room_id]['turn']):
                 break
+            self.logger.info(prompt)
 
         if not reply or reply == "somethingwentwrongwithyuanservice" or reply == "请求异常，请重试":
             self.logger.warning(f'Yuan may out of service, {reply}')
+            self.logger.info(prompt)
             return
 
         await room.say(reply)
         intent, conf = self.intent.predict(reply)
-        if intent == 'bye':
+        if intent in ['bye', 'notinterest', 'greeting']:
             await room.say('恭喜您，通过测试，成绩为合格，这意味着您可以应付这种情况', [talker.contact_id])
             await room.say(
                 f'测试人员：{talker.name} 通过测试，成绩合格，对方最终情绪侦测：{intent}， 对话轮次：{len(self.training_room[room.room_id]["turn"])}',
