@@ -31,7 +31,7 @@ class TrainingPlugin(WechatyPlugin):
         self.config_files = os.listdir(self.config_url)
 
         # 2. save the log info into <plugin_name>.log file
-        self.cache_dir = f'./.{self.name}'
+        #self.cache_dir = f'./.{self.name}'
         self.file_cache_dir = f'{self.cache_dir}/file'
         os.makedirs(self.file_cache_dir, exist_ok=True)
 
