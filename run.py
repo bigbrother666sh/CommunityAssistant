@@ -19,7 +19,7 @@ if __name__ == "__main__":
     bot = Wechaty(options)
     # dynamic_plugin = DynamicAuthorizationPlugin(config_file='.wechaty/dynamic_authorise.json', conv_config_file=conv_config_file)
     bot.use([
-        TrainingPlugin(options=WechatyPluginOptions(name='Lingxiaoi-Training')),
+        TrainingPlugin(),
         QunAssistantPlugin(),
         OnCallNoticePlugin(),
         Lurker(),

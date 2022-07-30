@@ -7,9 +7,11 @@ from wechaty import (
     WechatyPlugin,
     Message,
     Contact,
+    FriendshipType,
+    Friendship,
     WechatyPluginOptions
 )
-from wechaty_puppet import get_logger
+#from wechaty_puppet import get_logger
 from antigen_bot.message_controller import message_controller
 from utils.DFAFilter import DFAFilter
 from utils.rasaintent import RasaIntent
@@ -32,11 +34,11 @@ class TrainingPlugin(WechatyPlugin):
 
         # 2. save the log info into <plugin_name>.log file
         #self.cache_dir = f'./.{self.name}'
-        self.file_cache_dir = f'{self.cache_dir}/file'
-        os.makedirs(self.file_cache_dir, exist_ok=True)
+        #self.file_cache_dir = f'{self.cache_dir}/file'
+        #os.makedirs(self.file_cache_dir, exist_ok=True)
 
-        log_file = os.path.join(self.cache_dir, 'log.log')
-        self.logger = get_logger(log_file)
+        #log_file = os.path.join(self.cache_dir, 'log.log')
+        #self.logger = get_logger(self.name, log_file)
 
         # 3. check and load metadata
         if self._file_check() is False:
@@ -156,18 +158,22 @@ class TrainingPlugin(WechatyPlugin):
                 message_controller.disable_all_plugins(msg)
                 await room.ready(force_sync=True)
                 self.train_room[await room.topic()] = [contact.contact_id for contact in await room.member_list()]
-                await room.say('大家好，我是数字社工助理，我可以通过扮演各种居民角色，以模拟情景对话的方式帮助大家提升工作技能。\n'
-                               '欢迎大家微信加我好友开始体验。')
+                await room.say('大家好，我是数字社工助理，我可以通过扮演各种居民角色，以情景对话模拟的方式帮助大家提升工作技能。\n'
+                               '欢迎大家微信加我开始体验。')
                 return
 
             if text == '结束服务':
                 message_controller.disable_all_plugins(msg)
                 del self.train_room[await room.topic()]
+                return
+
+            await self.director_message(msg)
+            return
 
         if self.bot.user_self() in await msg.mention_list() and await room.topic() in self.train_room:
             message_controller.disable_all_plugins(msg)
-            await room.say('您好，我是数字社工助理，我可以通过扮演各种居民角色，以模拟情景对话的方式帮助大家提升工作技能。\n'
-                           '欢迎微信加我好友开始体验。')
+            await room.say('您好，我是数字社工助理，我可以通过扮演各种居民角色，以情景对话模拟的方式帮助大家提升工作技能。\n'
+                           '欢迎微信加我开始体验。')
             return
 
         # 这里预留未来群聊训练模式（用于人工指导、测试等）
@@ -295,7 +301,7 @@ class TrainingPlugin(WechatyPlugin):
         if record > 10:
             await talker.say(f"本次测试成绩超过本场景周期排名内{str(100-record*100//len(self.record[self.training[talker.contact_id]['course']]))}%的用户，再接再励哦~")
 
-        with open(os.path.join(self.file_cache_dir, date + talker.name + ".txt"), 'a', encoding='utf-8') as f:
+        with open(".TrainingPlugin/" + date + talker.name + ".txt", 'a', encoding='utf-8') as f:
             f.write(f'测试时间：{date}'+ '\n')
             f.write(f'测试人：{talker.name}'+ '\n')
             f.write(f"组织：{self.training[talker.contact_id]['group']}" + '\n')
@@ -309,3 +315,20 @@ class TrainingPlugin(WechatyPlugin):
                 else:
                     f.write('测试' + turn[2:] + '\n')
         del self.training[talker.contact_id]
+
+    async def on_friendship(self, friendship: Friendship) -> None:
+        """handle the event when there is friendship changed
+        功能描述：
+            1. 收到好友邀请的处理
+            2. 判断是否有用户权限，有的话直接接受好友邀请
+        Args:
+            friendship (Friendship):
+        """
+        self.logger.info(f'receive friendship<{friendship}> event')
+
+        if friendship.type() == FriendshipType.FRIENDSHIP_TYPE_RECEIVE:
+            contact = friendship.contact()
+            for key, list in self.train_room.items():
+                if contact.contact_id in list:
+                    await friendship.accept()
+                    await contact.say('欢迎添加数字社工助理，如需开始情景对话模拟训练，请直接发送：开始训练')
