@@ -36,7 +36,7 @@ class TrainingPlugin(WechatyPlugin):
         os.makedirs(self.file_cache_dir, exist_ok=True)
 
         log_file = os.path.join(self.cache_dir, 'log.log')
-        self.logger = get_logger(self.name, log_file)
+        self.logger = get_logger(log_file)
 
         # 3. check and load metadata
         if self._file_check() is False:
