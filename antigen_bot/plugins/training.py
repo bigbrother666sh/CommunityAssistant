@@ -6,6 +6,7 @@ from wechaty import (
     MessageType,
     WechatyPlugin,
     Message,
+    Contact,
     WechatyPluginOptions
 )
 from wechaty_puppet import get_logger
@@ -13,16 +14,21 @@ from antigen_bot.message_controller import message_controller
 from utils.DFAFilter import DFAFilter
 from utils.rasaintent import RasaIntent
 from antigen_bot.inspurai import Yuan
+import json
+import xlrd
+from datetime import datetime
 #from antigen_bot.Ernie.Zeus import Zeus
 
 
 class TrainingPlugin(WechatyPlugin):
     """
     社群工作人员培训模块
-    这里ai会扮演两个角色：1、很难缠的刺头；2、要死要活的怨妇
     """
-    def __init__(self, options: Optional[WechatyPluginOptions] = None):
+    def __init__(self, options: Optional[WechatyPluginOptions] = None, configs: str = 'CAconfigs'):
         super().__init__(options)
+        # 1. init the config file
+        self.config_url = configs
+        self.config_files = os.listdir(self.config_url)
 
         # 2. save the log info into <plugin_name>.log file
         self.cache_dir = f'./.{self.name}'
@@ -33,7 +39,29 @@ class TrainingPlugin(WechatyPlugin):
         self.logger = get_logger(self.name, log_file)
 
         # 3. check and load metadata
-        self.directors = ['wxid_tnv0hd5hj3rs11']
+        if self._file_check() is False:
+            raise RuntimeError('TrainingPlugin needs above config_files, pls add and try again')
+
+        with open(os.path.join(self.config_url, 'directors.json'), 'r', encoding='utf-8') as f:
+            self.directors = json.load(f)
+
+        self.courses = self._load_course()
+
+        if len(self.directors) == 0:
+            self.logger.warning('there must be at least one director, pls retry')
+            raise RuntimeError('Training director.json not valid, pls refer to above info and try again')
+
+        if "train_room.json" in self.config_files:
+            with open(os.path.join(self.config_url, 'train_room.json'), 'r', encoding='utf-8') as f:
+                self.train_room = json.load(f)
+        else:
+            self.train_room = {}
+
+        if "train_record.json" in self.config_files:
+            with open(os.path.join(self.config_url, 'train_record.json'), 'r', encoding='utf-8') as f:
+                self.record = json.load(f)
+        else:
+            self.record = {}
 
         self.gfw = DFAFilter()
         self.gfw.parse()
@@ -50,12 +78,61 @@ class TrainingPlugin(WechatyPlugin):
                          topP=0.9,
                          frequencyPenalty=1.2, )
         #self.zeus = Zeus()
-        self.training_room = {}
+        self.training = {}
         self.logger.info(f'Training plugin init success.')
 
     async def init_plugin(self, wechaty: Wechaty) -> None:
         message_controller.init_plugins(wechaty)
         return await super().init_plugin(wechaty)
+
+    def _file_check(self) -> bool:
+        """check the config file"""
+        if "directors.json" not in self.config_files:
+            self.logger.warning(f'config file url:/{self.config_url} does not have directors.json!')
+            return False
+
+        if "courses.xlsx" not in self.config_files:
+            self.logger.warning(f'config file url:/{self.config_url} does not have courses.xlsx!')
+            return False
+
+    async def director_message(self, msg: Message):
+        """
+        Director Module
+        """
+        # 1. check the heartbeat of WechatyPlugin
+        if msg.text() == "ding":
+            await msg.say(f'dong -- {self.name}TrainingPlugin')
+            return
+        # 2. help menu
+        if msg.text() == 'help':
+            await msg.say(f"{self.name} TrainingPlugin Director Code: \n"
+                          "ding -- check heartbeat \n"
+                          "save -- save users status")
+            return
+        # 3.functions
+        if msg.text() == 'save':
+            with open(os.path.join(self.config_url, 'train_room.json'), 'w', encoding='utf-8') as f:
+                json.dump(self.train_room, f, ensure_ascii=False)
+            with open(os.path.join(self.config_url, 'train_record.json'), 'w', encoding='utf-8') as f:
+                json.dump(self.record, f, ensure_ascii=False)
+            await msg.say(f'save success -- {self.name} Trainingplugin')
+
+    def _load_course(self) -> dict:
+        """load the course data"""
+        course_file = os.path.join(self.config_url, 'courses.xlsx')
+        data = xlrd.open_workbook(course_file)
+        table = data.sheets()[0]
+
+        courses = {}
+        nrows = table.nrows
+        if nrows < 2:
+            self.logger.warning('no data in courses.xls,this is not allowed')
+            return courses
+
+        for i in range(1, nrows):
+            courses[table.cell_value(i, 0)] = {'prompt': table.cell_value(i, 2), 'des': f'情景对话模拟训练已开始。\n{table.cell_value(i, 1)}',
+                                              'opening': table.cell_value(i, 3)}
+        return courses
 
     @message_controller.may_disable_message
     async def on_message(self, msg: Message) -> None:
@@ -77,123 +154,158 @@ class TrainingPlugin(WechatyPlugin):
         if talker.contact_id in self.directors:
             if text == '觉醒':
                 message_controller.disable_all_plugins(msg)
-                self.training_room[room.room_id] = {'pre_prompt': '', 'des': '', 'trainer': '', 'turn': []}
-                await room.say('AI培训演员就位，请问需要我这次扮演什么？刺头还是怨妇？', [talker.contact_id])
+                await room.ready(force_sync=True)
+                self.train_room[await room.topic()] = [contact.contact_id for contact in await room.member_list()]
+                await room.say('大家好，我是数字社工助理，我可以通过扮演各种居民角色，以模拟情景对话的方式帮助大家提升工作技能。\n'
+                               '欢迎大家微信加我好友开始体验。')
                 return
 
-            if text == '刺头':
+            if text == '结束服务':
                 message_controller.disable_all_plugins(msg)
-                self.training_room[room.room_id] = {'pre_prompt': '你叫李二牛，今年四十多岁，是个蛮不讲理的人。你所在的小区因突发疫情需要暂时封闭，但你执意出去与朋友聚会，于是你来到居委会，决定与工作人员好好理论一番。',
-                                                    'des': '情景对话模拟训练已开始。\n我扮演一个蛮不讲理的小区居民，我们所在的小区因突发疫情需要暂时封闭，而我执意要外出与朋友聚会，我现在来到居委会，您刚好作为工作人员接待我。', 'trainer': '', 'turn': []}
-                await room.say('好的，刺头模式已启动，请指定测试人员', [talker.contact_id])
+                del self.train_room[await room.topic()]
+
+        if self.bot.user_self() in await msg.mention_list() and await room.topic() in self.train_room:
+            message_controller.disable_all_plugins(msg)
+            await room.say('您好，我是数字社工助理，我可以通过扮演各种居民角色，以模拟情景对话的方式帮助大家提升工作技能。\n'
+                           '欢迎微信加我好友开始体验。')
+            return
+
+        # 这里预留未来群聊训练模式（用于人工指导、测试等）
+        if msg.room():
+            return
+
+        # 3. check if is training
+        if talker.contact_id in self.training:
+            message_controller.disable_all_plugins(msg)
+            if "结束训练" in text:
+                self.logger.info(f"来自 {self.training[talker.contact_id]['group']} 的 {talker.name} 主动结束了训练，该次训练记录取消")
+                del self.training[talker.contact_id]
+                await talker.say('训练结束，结果未记录，如需重新开始，请回复：开始训练')
                 return
 
-            if text == '怨妇':
-                message_controller.disable_all_plugins(msg)
-                self.training_room[room.room_id] = {'pre_prompt': '你叫王翠花，是个四十多岁的家庭妇女。你性格小气，跟邻居关系都很差。最近你们楼栋在商议加装电梯，住一楼的你很反对这件事，因为加装电梯需要更改你家的大门，'
-                                                                  '居委会的人已经几次上门来说服你，今天他们的工作人员又来找你，这明显是欺负你，你决定狠狠的反驳他。',
-                                                    'des': '情景对话模拟训练已开始。\n我扮演一个四十多岁的家庭妇女，性格小气且跟邻居关系都很差。最近我们楼栋计划加装电梯，整栋楼的居民都很赞同，但住一楼的我坚决反对，因为加装电梯需要更改我家大门朝向。'
-                                                           '居委会几次上门来说服我，我态度始终坚决。加梯工程是你所在的居委会今年工作重点，今天你受居委主任委托，再次上门来做我的工作……', 'trainer': '', 'turn': []}
-                await room.say('好的，怨妇模式已启动，请指定测试人员', [talker.contact_id])
-                return
-
-            if self.bot.user_self() in await msg.mention_list() and room.room_id in self.training_room:
-                message_controller.disable_all_plugins(msg)
-                for contact in await msg.mention_list():
-                    if contact == self.bot.user_self() or contact.contact_id in self.directors:
-                        continue
+            if not self.training[talker.contact_id]['course']:
+                for title in self.courses.keys():
+                    if title in text:
+                        self.training[talker.contact_id]['course'] = title
+                        await talker.say(self.courses[title]["des"])
+                        await talker.say('提醒：对话中有时我会故意沉默，您可以继续说，不必等待。')
+                        self.logger.info(f"来自 {self.training[talker.contact_id]['group']} 的 {talker.name} 开始了训练，课程：{title}")
+                        await talker.say(self.courses[title]["opening"])
+                        self.training[talker.contact_id]['log'].append(f"你说：“{self.courses[title]['opening']}”")
                     else:
-                        self.training_room[room.room_id]['trainer'] = contact.contact_id
-                        await room.say(f'{contact.name}已指定为测试人员', [talker.contact_id])
-                        break
-                if self.training_room[room.room_id]['pre_prompt']:
-                    await room.say(f'{self.training_room[room.room_id]["des"]}', [self.training_room[room.room_id]["trainer"]])
-                    await room.say('提醒：对话中有时我会故意沉默，您可以继续说，不必等待。', [self.training_room[room.room_id]["trainer"]])
-                    self.logger.info(f'director has start the training process, detail:{self.training_room[room.room_id]}')
-                    if self.training_room[room.room_id]['pre_prompt'].startswith('你叫李二牛'):
-                        await room.say('居委会就可以随便限制居民的人身自由了么？！')
-                        self.training_room[room.room_id]["turn"].append("你说：“居委会就可以随便限制居民的人身自由了么？！”")
-                        self.logger.info("AI说：“居委会就可以随便限制居民的人身自由了么？！”")
-                    if self.training_room[room.room_id]['pre_prompt'].startswith('你叫王翠花'):
-                        await room.say('怎么又是你们居委？你们收了其他人家的钱，故意来欺负我们家是吗？')
-                        self.training_room[room.room_id]["turn"].append("你说：“怎么又是你们居委？你们收了其他人家的钱，故意来欺负我们家是吗？”")
-                        self.logger.info("AI说：“怎么又是你们居委？你们收了其他人家的钱，故意来欺负我们家是吗？”")
-                else:
-                    await room.say('请先指定仿真模式，现在有两种模式：刺头和怨妇。', [talker.contact_id])
-            return
+                        await talker.say('请先选择课程，如需结束或重新开始，请回复：结束训练')
+                    return
 
-        # 3. check if is trainer
-        if room.room_id not in self.training_room:
-            return
+            if re.match(r"^「.+」\s-+\s.+", text, re.S):
+                text = re.search(r"：.+」", text, re.S).group()[1:-1] + "，" + re.search(r"-\n.+", text, re.S).group()[2:]
 
-        if talker.contact_id != self.training_room[room.room_id]['trainer']:
-            return
+            text = text.strip().replace('\n', '，')
+            self.training[talker.contact_id]['log'].append(f"工作人员说：“{text}”")
 
-        message_controller.disable_all_plugins(msg)
-        if re.match(r"^「.+」\s-+\s.+", text, re.S):
-            text = re.search(r"：.+」", text, re.S).group()[1:-1] + "，" + re.search(r"-\n.+", text, re.S).group()[2:]
+            if self.gfw.filter(text):
+                await talker.say(f'您因发表不当言论挑战失败，对话轮次：{len(self.training[talker.contact_id]["turn"])}')
+                self.training[talker.contact_id]['log'].append(f'测试人员：{talker.name} 因发表不当言论挑战失败')
+                await self.stop_train(talker)
+                return
 
-        text = text.strip().replace('\n', '，')
+            intent, conf = self.intent.predict(text)
+            if intent in ['notinterest', 'aichallenge', 'badreply', 'angry', 'provocate', 'complain', 'quarrel']:
+                await talker.say(f"侦测到您未合理控制谈话情绪，本次挑战失败，对话轮次：{len(self.training[talker.contact_id]['turn'])}")
+                self.training[talker.contact_id]['log'].append(f'测试人员：{talker.name} 因未合理控制情绪挑战失败，情绪侦测：{intent}')
+                await self.stop_train(talker)
+                return
 
-        if self.gfw.filter(text):
-            await room.say(f'测试人员：{talker.name} 因发表不当言论挑战失败，对话轮次：{len(self.training_room[room.room_id]["turn"])}', self.directors)
-            self.logger.info(f'测试人员：{talker.name} 因发表不当言论挑战失败，对话轮次：{len(self.training_room[room.room_id]["turn"])}')
-            del self.training_room[room.room_id]
-            return
+            dialog = ''
+            for i in range(len(self.training[talker.contact_id]['log'])-1, -1, -1):
+                dialog = self.training[talker.contact_id]['log'][i] + dialog
+                if len(dialog) > 300:
+                    break
 
-        intent, conf = self.intent.predict(text)
-        if intent in ['notinterest', 'aichallenge', 'badreply', 'angry', 'provocate', 'complain', 'quarrel']:
-            await room.say('侦测到您未合理控制谈话情绪，本次挑战失败', [talker.contact_id])
-            await room.say(f'测试人员：{talker.name} 因未合理控制情绪挑战失败，情绪侦测：{intent}， 对话轮次：{len(self.training_room[room.room_id]["turn"])}',
-                           self.directors)
-            self.logger.info(f'测试人员：{talker.name} 因未合理控制情绪挑战失败，情绪侦测：{intent}，对话轮次：{len(self.training_room[room.room_id]["turn"])}')
-            del self.training_room[room.room_id]
-            return
+            prompt = self.courses[self.training[talker.contact_id]['course']]['prompt'] + dialog + "你说：“"
 
-        self.training_room[room.room_id]["turn"].append(f"工作人员说：“{text}”")
-        self.logger.info(f"trainer说：“{text}”")
+            for i in range(7):
+                reply = self.yuan.submit_API(prompt, trun="”")
+                #reply = self.zeus.get_response(prompt)
+                if not reply or reply == "somethingwentwrongwithyuanservice" or reply == "请求异常，请重试":
+                    self.logger.warning(f'generation failed {str(i + 1)} times.')
+                    continue
+                if len(reply) <= 5 or reply not in dialog:
+                    break
+                print(prompt)
 
-        dialog = ''
-        for i in range(len(self.training_room[room.room_id]["turn"])-1, -1, -1):
-            dialog = self.training_room[room.room_id]["turn"][i] + dialog
-            if len(dialog) > 300:
-                break
-
-        prompt = self.training_room[room.room_id]['pre_prompt'] + dialog + "你说：“"
-
-        for i in range(7):
-            reply = self.yuan.submit_API(prompt, trun="”")
-            #reply = self.zeus.get_response(prompt)
             if not reply or reply == "somethingwentwrongwithyuanservice" or reply == "请求异常，请重试":
-                self.logger.warning(f'generation failed {str(i + 1)} times.')
-                continue
-            if len(reply) <= 5 or reply not in ''.join(self.training_room[room.room_id]['turn']):
-                break
-            self.logger.info(prompt)
+                self.logger.warning(f'Yuan may out of service, {reply}')
+                self.logger.info(prompt)
+                return
 
-        if not reply or reply == "somethingwentwrongwithyuanservice" or reply == "请求异常，请重试":
-            self.logger.warning(f'Yuan may out of service, {reply}')
-            self.logger.info(prompt)
+            await talker.say(reply)
+            self.logger.info(f"AI回复：{reply}")
+            self.training[talker.contact_id]["log"].append(f"你说：“{reply}”")
+            self.training[talker.contact_id]["turn"] += 1
+
+            intent, conf = self.intent.predict(reply)
+            if intent in ['bye', 'notinterest', 'greeting']:
+                await talker.say(f'恭喜您，通过测试，对话轮次：{len(self.training[talker.contact_id]["turn"])}')
+                self.training[talker.contact_id]['log'].append(f'测试人员：{talker.name} 通过测试，AI角色最终情绪：{intent}')
+                await self.stop_train(talker)
+            elif intent == 'praise':
+                await talker.say(f"恭喜您，完美应付此场景！对话轮次：{len(self.training[talker.contact_id]['turn'])}")
+                self.training[talker.contact_id]['log'].append(f'测试人员：{talker.name} 完美应付此场景！AI角色最终情绪：{intent}')
+                await self.stop_train(talker)
             return
 
-        await room.say(reply)
-        intent, conf = self.intent.predict(reply)
-        if intent in ['bye', 'notinterest', 'greeting']:
-            await room.say('恭喜您，通过测试，成绩为合格，这意味着您可以应付这种情况', [talker.contact_id])
-            await room.say(
-                f'测试人员：{talker.name} 通过测试，成绩合格，对方最终情绪侦测：{intent}， 对话轮次：{len(self.training_room[room.room_id]["turn"])}',
-                self.directors)
-            self.logger.info(
-                f'测试人员：{talker.name} 通过测试，成绩合格，对方最终情绪侦测：{intent}，对话轮次：{len(self.training_room[room.room_id]["turn"])}')
-            del self.training_room[room.room_id]
-        elif intent == 'praise':
-            await room.say('恭喜您，通过测试，成绩优秀，你不仅应付了局面，居然还能让对方很满意[强]', [talker.contact_id])
-            await room.say(
-                f'测试人员：{talker.name} 通过测试，成绩优秀，对方最终情绪侦测：{intent}， 对话轮次：{len(self.training_room[room.room_id]["turn"])}',
-                self.directors)
-            self.logger.info(
-                f'测试人员：{talker.name} 通过测试，成绩优秀，对方最终情绪侦测：{intent}，对话轮次：{len(self.training_room[room.room_id]["turn"])}')
-            del self.training_room[room.room_id]
+        # 5.start training
+        if '开始训练' in text:
+            message_controller.disable_all_plugins(msg)
+            group = ''
+            for key, list in self.train_room.items():
+                if talker.contact_id in list:
+                    group = key
+                    break
+            if not group:
+                await talker.say('您没有权限开始训练，请联系上级部门添加微信号：baohukeji 咨询开通')
+                self.logger.warning(f'{talker.name} 咨询开通')
+                return
+
+            self.training[talker.contact_id] = {'group':group, 'course': '', 'turn': 0, 'log': []}
+            course_topics = '\n'.join(self.courses.keys())
+            await talker.say(f'欢迎使用AI虚拟情景培训，目前已有课程如下：\n' + course_topics + '\n请直接回复课程名称开始')
         else:
-            self.training_room[room.room_id]["turn"].append(f"你说：“{reply}”")
-            self.logger.info(f"AI说：“{reply}”")
+            await talker.say('如需对话情景模拟训练请回复：开始训练')
+
+    async def stop_train(self, talker: Contact) -> None:
+        """
+        End this round of training, calculate the ranking,
+        inform the testers of the results,
+        and record the test information as a txt file
+        """
+        date = datetime.now().strftime('%Y%m%d%H%M')
+        if self.training[talker.contact_id]['course'] in self.record:
+            self.record[self.training[talker.contact_id]['course']].append((self.training[talker.contact_id]['turn'], talker.name))
+        else:
+            self.record[self.training[talker.contact_id]['course']] = [(self.training[talker.contact_id]['turn'], talker.name)]
+
+        record = 0
+        if len(self.record[self.training[talker.contact_id]['course']]) > 10:
+            self.record[self.training[talker.contact_id]['course']].sort(key=lambda x: x[0], reverse=True)
+            record = self.record[self.training[talker.contact_id]['course']].index((self.training[talker.contact_id]['turn'], talker.name))
+
+        if 0 < record <= 10:
+            await talker.say(f'您本次测试成绩进入本场景周期排名前十！名列第{str(record)}，继续努力哦[撒花]')
+        if record > 10:
+            await talker.say(f"本次测试成绩超过本场景周期排名内{str(100-record*100//len(self.record[self.training[talker.contact_id]['course']]))}%的用户，再接再励哦~")
+
+        with open(os.path.join(self.file_cache_dir, date + talker.name + ".txt"), 'a', encoding='utf-8') as f:
+            f.write(f'测试时间：{date}'+ '\n')
+            f.write(f'测试人：{talker.name}'+ '\n')
+            f.write(f"组织：{self.training[talker.contact_id]['group']}" + '\n')
+            f.write(f"测试情景：{self.training[talker.contact_id]['course']}" + '\n')
+            f.write(f"成绩（轮次）：{str(self.training[talker.contact_id]['turn'])}" + '\n')
+            f.write(f"周期排名：{str(record)}" + '\n') if record != 0 else f.write(f"周期排名：---" + '\n')
+            f.write("----------------------" + '\n')
+            for turn in self.training[talker.contact_id]['log']:
+                if turn.startwith('你'):
+                    f.write('AI'+turn[1:] + '\n')
+                else:
+                    f.write('测试' + turn[2:] + '\n')
+        del self.training[talker.contact_id]
