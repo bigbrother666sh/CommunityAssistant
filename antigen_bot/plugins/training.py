@@ -197,7 +197,7 @@ class TrainingPlugin(WechatyPlugin):
                     if title in text:
                         self.training[talker.contact_id]['course'] = title
                         await talker.say(self.courses[title]["des"])
-                        await talker.say('提醒：对话中有时我会故意沉默，您可以继续说，不必等待。')
+                        await talker.say('提醒：对话中有时我会故意沉默，您可以继续说，不必等待。期间如果您想结束或重新开始训练，请发送：结束训练')
                         self.logger.info(f"来自 {self.training[talker.contact_id]['group']} 的 {talker.name} 开始了训练，课程：{title}")
                         await talker.say(self.courses[title]["opening"])
                         self.training[talker.contact_id]['log'].append(f"你说：“{self.courses[title]['opening']}”")
@@ -212,14 +212,14 @@ class TrainingPlugin(WechatyPlugin):
             self.training[talker.contact_id]['log'].append(f"工作人员说：“{text}”")
 
             if self.gfw.filter(text):
-                await talker.say(f'您因发表不当言论挑战失败，对话轮次：{len(self.training[talker.contact_id]["turn"])}')
+                await talker.say(f'您因发表不当言论挑战失败，对话轮次：{self.training[talker.contact_id]["turn"]}')
                 self.training[talker.contact_id]['log'].append(f'测试人员：{talker.name} 因发表不当言论挑战失败')
                 await self.stop_train(talker)
                 return
 
             intent, conf = self.intent.predict(text)
             if intent in ['notinterest', 'aichallenge', 'badreply', 'angry', 'provocate', 'complain', 'quarrel']:
-                await talker.say(f"侦测到您未合理控制谈话情绪，本次挑战失败，对话轮次：{len(self.training[talker.contact_id]['turn'])}")
+                await talker.say(f"侦测到您未合理控制谈话情绪，本次挑战失败，对话轮次：{self.training[talker.contact_id]['turn']}")
                 self.training[talker.contact_id]['log'].append(f'测试人员：{talker.name} 因未合理控制情绪挑战失败，情绪侦测：{intent}')
                 await self.stop_train(talker)
                 return
@@ -235,12 +235,12 @@ class TrainingPlugin(WechatyPlugin):
             for i in range(7):
                 reply = self.yuan.submit_API(prompt, trun="”")
                 #reply = self.zeus.get_response(prompt)
+                print(prompt)
                 if not reply or reply == "somethingwentwrongwithyuanservice" or reply == "请求异常，请重试":
                     self.logger.warning(f'generation failed {str(i + 1)} times.')
                     continue
                 if len(reply) <= 5 or reply not in dialog:
                     break
-                print(prompt)
 
             if not reply or reply == "somethingwentwrongwithyuanservice" or reply == "请求异常，请重试":
                 self.logger.warning(f'Yuan may out of service, {reply}')
@@ -254,11 +254,11 @@ class TrainingPlugin(WechatyPlugin):
 
             intent, conf = self.intent.predict(reply)
             if intent in ['bye', 'notinterest', 'greeting']:
-                await talker.say(f'恭喜您，通过测试，对话轮次：{len(self.training[talker.contact_id]["turn"])}')
+                await talker.say(f'恭喜您，通过测试，对话轮次：{self.training[talker.contact_id]["turn"]}')
                 self.training[talker.contact_id]['log'].append(f'测试人员：{talker.name} 通过测试，AI角色最终情绪：{intent}')
                 await self.stop_train(talker)
             elif intent == 'praise':
-                await talker.say(f"恭喜您，完美应付此场景！对话轮次：{len(self.training[talker.contact_id]['turn'])}")
+                await talker.say(f"恭喜您，完美应付此场景！对话轮次：{self.training[talker.contact_id]['turn']}")
                 self.training[talker.contact_id]['log'].append(f'测试人员：{talker.name} 完美应付此场景！AI角色最终情绪：{intent}')
                 await self.stop_train(talker)
             return
