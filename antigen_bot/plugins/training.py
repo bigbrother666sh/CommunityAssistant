@@ -141,7 +141,7 @@ class TrainingPlugin(WechatyPlugin):
 
     @message_controller.may_disable_message
     async def on_message(self, msg: Message) -> None:
-        if msg.is_self() or msg.talker().contact_id == "weixin" or not msg.room():
+        if msg.is_self() or msg.talker().contact_id == "weixin":
             return
 
         if msg.type() != MessageType.MESSAGE_TYPE_TEXT:
@@ -266,7 +266,7 @@ class TrainingPlugin(WechatyPlugin):
         # 5.start training
         if '开始训练' in text:
             message_controller.disable_all_plugins(msg)
-            group = ''
+            group = None
             for key, list in self.train_room.items():
                 if talker.contact_id in list:
                     group = key
