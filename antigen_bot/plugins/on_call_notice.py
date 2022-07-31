@@ -13,7 +13,6 @@ from wechaty import (
     Message,
     WechatyPluginOptions
 )
-from wechaty_puppet import get_logger
 from datetime import datetime
 from antigen_bot.message_controller import message_controller
 
@@ -31,14 +30,6 @@ class OnCallNoticePlugin(WechatyPlugin):
         # 1. init the config file
         self.config_url = configs
         self.config_files = os.listdir(self.config_url)
-
-        # 2. save the log info into <plugin_name>.log file
-        self.cache_dir = f'./.{self.name}'
-        self.file_cache_dir = f'{self.cache_dir}/file'
-        os.makedirs(self.file_cache_dir, exist_ok=True)
-
-        log_file = os.path.join(self.cache_dir, 'log.log')
-        self.logger = get_logger(self.name, log_file)
 
         # 3. check and load metadata
         if self._file_check() is False:
@@ -154,7 +145,7 @@ class OnCallNoticePlugin(WechatyPlugin):
 
         if msg.type() in [MessageType.MESSAGE_TYPE_IMAGE, MessageType.MESSAGE_TYPE_VIDEO, MessageType.MESSAGE_TYPE_EMOTICON]:
             file_box = await msg.to_file_box()
-            saved_file = os.path.join(self.file_cache_dir, file_box.name)
+            saved_file = os.path.join(f'.wechaty/{self.name}/file', file_box.name)
             await file_box.to_file(saved_file, overwrite=True)
             file_box = FileBox.from_file(saved_file)
 
@@ -175,7 +166,7 @@ class OnCallNoticePlugin(WechatyPlugin):
 
         if msg.type() == MessageType.MESSAGE_TYPE_AUDIO:
             file_box = await msg.to_file_box()
-            saved_file = os.path.join(self.file_cache_dir, file_box.name)
+            saved_file = os.path.join(f'.wechaty/{self.name}/file', file_box.name)
             await file_box.to_file(saved_file, overwrite=True)
             new_audio_file = FileBox.from_file(saved_file)
             new_audio_file.metadata = {

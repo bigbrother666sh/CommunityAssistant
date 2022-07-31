@@ -11,7 +11,7 @@ from wechaty import (
     Friendship,
     WechatyPluginOptions
 )
-#from wechaty_puppet import get_logger
+
 from antigen_bot.message_controller import message_controller
 from utils.DFAFilter import DFAFilter
 from utils.rasaintent import RasaIntent
@@ -82,6 +82,9 @@ class TrainingPlugin(WechatyPlugin):
         #self.zeus = Zeus()
         self.training = {}
         self.logger.info(f'Training plugin init success.')
+        engine_name = self.yuan.get_engine()
+        self.logger.info(
+            f'with yuan engine:{engine_name},with temperature=1, max_tokens=150, topK=3, topP=0.9, frequencyPenalty=1.2')
 
     async def init_plugin(self, wechaty: Wechaty) -> None:
         message_controller.init_plugins(wechaty)
