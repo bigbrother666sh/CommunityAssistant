@@ -206,6 +206,7 @@ class TrainingPlugin(WechatyPlugin):
             if self.gfw.filter(text):
                 await talker.say(f'您因发表不当言论挑战失败，对话轮次：{self.training[talker.contact_id]["turn"]}')
                 self.training[talker.contact_id]['log'].append(f'测试人员：{talker.name} 因发表不当言论挑战失败')
+                self.logger.info(f'测试人员：{talker.name} 因发表不当言论挑战失败，详情已记录.TrainingPlugin文件夹')
                 await self.stop_train(talker)
                 return
 
@@ -213,6 +214,7 @@ class TrainingPlugin(WechatyPlugin):
             if intent in ['notinterest', 'aichallenge', 'badreply', 'angry', 'provocate', 'complain', 'quarrel']:
                 await talker.say(f"侦测到您未合理控制谈话情绪，本次挑战失败，对话轮次：{self.training[talker.contact_id]['turn']}")
                 self.training[talker.contact_id]['log'].append(f'测试人员：{talker.name} 因未合理控制情绪挑战失败，情绪侦测：{intent}')
+                self.logger.info(f'测试人员：{talker.name} 因未合理控制情绪挑战失败，详情已记录.TrainingPlugin文件夹')
                 await self.stop_train(talker)
                 return
 
@@ -247,10 +249,12 @@ class TrainingPlugin(WechatyPlugin):
             if intent in ['bye', 'notinterest', 'greeting']:
                 await talker.say(f'恭喜您，通过测试，对话轮次：{self.training[talker.contact_id]["turn"]}')
                 self.training[talker.contact_id]['log'].append(f'测试人员：{talker.name} 通过测试，AI角色最终情绪：{intent}')
+                self.logger.info(f'测试人员：{talker.name} 通过测试，详情已记录.TrainingPlugin文件夹')
                 await self.stop_train(talker)
             elif intent == 'praise':
                 await talker.say(f"恭喜您，完美应付此场景！对话轮次：{self.training[talker.contact_id]['turn']}")
                 self.training[talker.contact_id]['log'].append(f'测试人员：{talker.name} 完美应付此场景！AI角色最终情绪：{intent}')
+                self.logger.info(f'测试人员：{talker.name} 完美通过测试，详情已记录于.TrainingPlugin文件夹')
                 await self.stop_train(talker)
             return
 
