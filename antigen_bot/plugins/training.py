@@ -201,9 +201,9 @@ class TrainingPlugin(WechatyPlugin):
                         self.logger.info(f"来自 {self.training[talker.contact_id]['group']} 的 {talker.name} 开始了训练，课程：{title}")
                         await talker.say(self.courses[title]["opening"])
                         self.training[talker.contact_id]['log'].append(f"你说：“{self.courses[title]['opening']}”")
-                    else:
-                        await talker.say('请先选择课程，如需结束或重新开始，请回复：结束训练')
-                    return
+                        return
+                await talker.say('请先选择课程，如需结束或重新开始，请回复：结束训练')
+                return
 
             if re.match(r"^「.+」\s-+\s.+", text, re.S):
                 text = re.search(r"：.+」", text, re.S).group()[1:-1] + "，" + re.search(r"-\n.+", text, re.S).group()[2:]
@@ -276,7 +276,7 @@ class TrainingPlugin(WechatyPlugin):
                 self.logger.warning(f'{talker.name} 咨询开通')
                 return
 
-            self.training[talker.contact_id] = {'group':group, 'course': '', 'turn': 0, 'log': []}
+            self.training[talker.contact_id] = {'group': group, 'course': '', 'turn': 0, 'log': []}
             course_topics = '\n'.join(self.courses.keys())
             await talker.say(f'欢迎使用AI虚拟情景培训，目前已有课程如下：\n' + course_topics + '\n请直接回复课程名称开始')
         else:
