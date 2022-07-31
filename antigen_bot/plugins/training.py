@@ -32,14 +32,6 @@ class TrainingPlugin(WechatyPlugin):
         self.config_url = configs
         self.config_files = os.listdir(self.config_url)
 
-        # 2. save the log info into <plugin_name>.log file
-        #self.cache_dir = f'./.{self.name}'
-        #self.file_cache_dir = f'{self.cache_dir}/file'
-        #os.makedirs(self.file_cache_dir, exist_ok=True)
-
-        #log_file = os.path.join(self.cache_dir, 'log.log')
-        #self.logger = get_logger(self.name, log_file)
-
         # 3. check and load metadata
         if self._file_check() is False:
             raise RuntimeError('TrainingPlugin needs above config_files, pls add and try again')
@@ -235,7 +227,7 @@ class TrainingPlugin(WechatyPlugin):
             for i in range(7):
                 reply = self.yuan.submit_API(prompt, trun="”")
                 #reply = self.zeus.get_response(prompt)
-                print(prompt)
+                #print(prompt)
                 if not reply or reply == "somethingwentwrongwithyuanservice" or reply == "请求异常，请重试":
                     self.logger.warning(f'generation failed {str(i + 1)} times.')
                     continue
@@ -248,7 +240,6 @@ class TrainingPlugin(WechatyPlugin):
                 return
 
             await talker.say(reply)
-            self.logger.info(f"AI回复：{reply}")
             self.training[talker.contact_id]["log"].append(f"你说：“{reply}”")
             self.training[talker.contact_id]["turn"] += 1
 
@@ -313,7 +304,7 @@ class TrainingPlugin(WechatyPlugin):
             f.write(f"周期排名：{str(record)}" + '\n') if record != 0 else f.write(f"周期排名：---" + '\n')
             f.write("----------------------" + '\n')
             for turn in self.training[talker.contact_id]['log']:
-                if turn.startwith('你'):
+                if turn.startswith('你'):
                     f.write('AI'+turn[1:] + '\n')
                 else:
                     f.write('测试' + turn[2:] + '\n')
