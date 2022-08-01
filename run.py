@@ -4,7 +4,6 @@ import sys
 from wechaty import Wechaty, WechatyOptions
 from antigen_bot.plugins.on_call_notice import OnCallNoticePlugin
 from antigen_bot.plugins.qun_assistant import QunAssistantPlugin
-from antigen_bot.plugins.lurker import Lurker
 from antigen_bot.plugins.training import TrainingPlugin
 
 
@@ -22,6 +21,5 @@ if __name__ == "__main__":
         TrainingPlugin(),
         QunAssistantPlugin(),
         OnCallNoticePlugin(),
-        Lurker(),
     ])
     asyncio.run(bot.start())
