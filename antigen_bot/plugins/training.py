@@ -68,15 +68,15 @@ class TrainingPlugin(WechatyPlugin):
                          output_prefix='',
                          output_suffix='',
                          append_output_prefix_to_query=False,
-                         topK=3,
-                         topP=0.9,
+                         topK=5,
+                         topP=1,
                          frequencyPenalty=1.2, )
         #self.zeus = Zeus()
         self.training = {}
         self.logger.info(f'Training plugin init success.')
         engine_name = self.yuan.get_engine()
         self.logger.info(
-            f'with yuan engine:{engine_name},with temperature=1, max_tokens=150, topK=3, topP=0.9, frequencyPenalty=1.2')
+            f'with yuan engine:{engine_name},with temperature=1, max_tokens=150, topK=5, topP=1, frequencyPenalty=1.2')
 
     async def init_plugin(self, wechaty: Wechaty) -> None:
         message_controller.init_plugins(wechaty)
@@ -283,7 +283,7 @@ class TrainingPlugin(WechatyPlugin):
         inform the testers of the results,
         and record the test information as a txt file
         """
-        date = datetime.now().strftime('%Y%m%d%H%M')
+        date = datetime.now().strftime('%Y/%m/%d-%H:%M')
         if self.training[talker.contact_id]['course'] in self.record:
             self.record[self.training[talker.contact_id]['course']].append((self.training[talker.contact_id]['turn'], talker.name))
         else:
