@@ -192,7 +192,7 @@ class TrainingPlugin(WechatyPlugin):
                         await talker.say('提醒：对话中有时我会故意沉默，您可以继续说，不必等待。期间如果您想结束或重新开始训练，请发送：结束训练')
                         self.logger.info(f"来自 {self.training[talker.contact_id]['group']} 的 {talker.name} 开始了训练，课程：{title}")
                         await talker.say(self.courses[title]["opening"])
-                        self.training[talker.contact_id]['log'].append(f"你说：“{self.courses[title]['opening']}”")
+                        #self.training[talker.contact_id]['log'].append(f"你说：“{self.courses[title]['opening']}”")
                         return
                 await talker.say('请先选择课程，如需结束或重新开始，请回复：结束训练')
                 return
@@ -232,9 +232,13 @@ class TrainingPlugin(WechatyPlugin):
                 #print(prompt)
                 if not reply or reply == "somethingwentwrongwithyuanservice" or reply == "请求异常，请重试":
                     self.logger.warning(f'generation failed {str(i + 1)} times.')
+                    self.logger.info(prompt)
                     continue
-                if len(reply) <= 3 or reply not in dialog:
+                if len(reply) <= 3 or reply[:-2] not in dialog:
                     break
+                self.logger.warning(f'repeat generation:{reply}')
+                self.logger.info(prompt)
+                prompt = self.courses[self.training[talker.contact_id]['course']]['prompt'] + self.training[talker.contact_id]['log'][-1] + "你说：“"
 
             if not reply or reply == "somethingwentwrongwithyuanservice" or reply == "请求异常，请重试":
                 self.logger.warning(f'Yuan may out of service, {reply}')
@@ -242,7 +246,7 @@ class TrainingPlugin(WechatyPlugin):
                 return
 
             await talker.say(reply)
-            if len(reply) <= 3 or reply not in dialog:
+            if len(reply) <= 3 or reply[:-2] not in dialog:
                 self.training[talker.contact_id]["log"].append(f"你说：“{reply}”")
             else:
                 self.training[talker.contact_id]["log"] = self.training[talker.contact_id]["log"][0] + self.training[talker.contact_id]["log"][-1]
