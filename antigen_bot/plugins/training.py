@@ -211,7 +211,7 @@ class TrainingPlugin(WechatyPlugin):
                 return
 
             intent, conf = self.intent.predict(text)
-            if intent in ['notinterest', 'aichallenge', 'badreply', 'angry', 'provocate', 'complain', 'quarrel']:
+            if intent in ['impatient', 'aichallenge', 'badreply', 'angry', 'provocate', 'complain', 'quarrel', 'sayno']:
                 await talker.say(f"侦测到您未合理控制谈话情绪，本次挑战失败，对话轮次：{self.training[talker.contact_id]['turn']}")
                 self.training[talker.contact_id]['log'].append(f'测试人员：{talker.name} 因未合理控制情绪挑战失败，情绪侦测：{intent}')
                 self.logger.info(f'测试人员：{talker.name} 因未合理控制情绪挑战失败，详情已记录.TrainingPlugin文件夹')
@@ -233,7 +233,7 @@ class TrainingPlugin(WechatyPlugin):
                 if not reply or reply == "somethingwentwrongwithyuanservice" or reply == "请求异常，请重试":
                     self.logger.warning(f'generation failed {str(i + 1)} times.')
                     continue
-                if len(reply) <= 5 or reply not in dialog:
+                if len(reply) <= 3 or reply not in dialog:
                     break
 
             if not reply or reply == "somethingwentwrongwithyuanservice" or reply == "请求异常，请重试":
@@ -242,11 +242,14 @@ class TrainingPlugin(WechatyPlugin):
                 return
 
             await talker.say(reply)
-            self.training[talker.contact_id]["log"].append(f"你说：“{reply}”")
+            if len(reply) <= 3 or reply not in dialog:
+                self.training[talker.contact_id]["log"].append(f"你说：“{reply}”")
+            else:
+                self.training[talker.contact_id]["log"] = self.training[talker.contact_id]["log"][0] + self.training[talker.contact_id]["log"][-1]
             self.training[talker.contact_id]["turn"] += 1
 
             intent, conf = self.intent.predict(reply)
-            if intent in ['bye', 'notinterest', 'greeting']:
+            if intent in ['bye', 'greeting']:
                 await talker.say(f'恭喜您，通过测试，对话轮次：{self.training[talker.contact_id]["turn"]}')
                 self.training[talker.contact_id]['log'].append(f'测试人员：{talker.name} 通过测试，AI角色最终情绪：{intent}')
                 self.logger.info(f'测试人员：{talker.name} 通过测试，详情已记录.TrainingPlugin文件夹')
