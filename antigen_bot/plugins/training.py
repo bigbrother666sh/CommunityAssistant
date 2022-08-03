@@ -69,14 +69,14 @@ class TrainingPlugin(WechatyPlugin):
                          output_suffix='',
                          append_output_prefix_to_query=False,
                          topK=5,
-                         topP=1,
+                         topP=0.9,
                          frequencyPenalty=1.2, )
         #self.zeus = Zeus()
         self.training = {}
         self.logger.info(f'Training plugin init success.')
         engine_name = self.yuan.get_engine()
         self.logger.info(
-            f'with yuan engine:{engine_name},with temperature=1, max_tokens=150, topK=5, topP=1, frequencyPenalty=1.2')
+            f'with yuan engine:{engine_name},with temperature=1, max_tokens=150, topK=5, topP=0.9, frequencyPenalty=1.2')
 
     async def init_plugin(self, wechaty: Wechaty) -> None:
         message_controller.init_plugins(wechaty)
@@ -262,6 +262,11 @@ class TrainingPlugin(WechatyPlugin):
                 await talker.say(f"恭喜您，完美应付此场景！对话轮次：{self.training[talker.contact_id]['turn']}")
                 self.training[talker.contact_id]['log'].append(f'测试人员：{talker.name} 完美应付此场景！AI角色最终情绪：{intent}')
                 self.logger.info(f'测试人员：{talker.name} 完美通过测试，详情已记录于.TrainingPlugin文件夹')
+                await self.stop_train(talker)
+            elif intent in ['angry', 'provocate', 'complain', 'quarrel']:
+                await talker.say(f"侦测到虚拟角色情绪为{intent}，本次挑战失败，对话轮次：{self.training[talker.contact_id]['turn']}")
+                self.training[talker.contact_id]['log'].append(f'侦测到虚拟角色情绪为{intent}，本次挑战失败，测试人员：{talker.name}')
+                self.logger.info(f'侦测到虚拟角色情绪为{intent}，本次挑战失败，测试人员：{talker.name}，详情已记录于.TrainingPlugin文件夹')
                 await self.stop_train(talker)
             return
 
