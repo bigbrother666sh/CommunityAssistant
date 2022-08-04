@@ -59,7 +59,6 @@ class TrainingPlugin(WechatyPlugin):
             self.record = {}
 
         self.gfw = SimpleFilter()
-        self.gfw.parse()
         self.intent = RasaIntent()
         self.sim = Taskflow("text_similarity")
         self.yuan = Yuan(engine='dialog',
