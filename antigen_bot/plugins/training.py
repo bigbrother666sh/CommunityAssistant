@@ -11,9 +11,9 @@ from wechaty import (
     Friendship,
     WechatyPluginOptions
 )
-
+from paddlenlp import Taskflow
 from antigen_bot.message_controller import message_controller
-from utils.DFAFilter import DFAFilter
+from utils.simpleFilter import SimpleFilter
 from utils.rasaintent import RasaIntent
 from antigen_bot.inspurai import Yuan
 import json
@@ -31,6 +31,7 @@ class TrainingPlugin(WechatyPlugin):
         # 1. init the config file
         self.config_url = configs
         self.config_files = os.listdir(self.config_url)
+        self.record_url = os.path.join(os.environ.get("CACHE_DIR", ".wechaty"), self.name)
 
         # 3. check and load metadata
         if self._file_check() is False:
@@ -57,9 +58,10 @@ class TrainingPlugin(WechatyPlugin):
         else:
             self.record = {}
 
-        self.gfw = DFAFilter()
+        self.gfw = SimpleFilter()
         self.gfw.parse()
         self.intent = RasaIntent()
+        self.sim = Taskflow("text_similarity")
         self.yuan = Yuan(engine='dialog',
                          temperature=1,
                          max_tokens=150,
@@ -130,6 +132,19 @@ class TrainingPlugin(WechatyPlugin):
             courses[table.cell_value(i, 0)] = {'prompt': table.cell_value(i, 2), 'des': f'情景对话模拟训练已开始。\n{table.cell_value(i, 1)}',
                                               'opening': table.cell_value(i, 3)}
         return courses
+
+    def repeat_check(self, list:[str]) -> int:
+        """
+        check the repeat message
+        """
+        similatiry = self.sim(list)
+        repeat_no = 0
+        for item in similatiry:
+            if item['similarity'] > 0.9:
+                repeat_no += 1
+            if repeat_no > 2:
+                return repeat_no
+        return repeat_no
 
     @message_controller.may_disable_message
     async def on_message(self, msg: Message) -> None:
@@ -221,7 +236,7 @@ class TrainingPlugin(WechatyPlugin):
             dialog = ''
             for i in range(len(self.training[talker.contact_id]['log'])-1, -1, -1):
                 dialog = self.training[talker.contact_id]['log'][i] + dialog
-                if len(dialog) > 300:
+                if len(dialog) > 50:
                     break
 
             prompt = self.courses[self.training[talker.contact_id]['course']]['prompt'] + dialog + "你说：“"
@@ -229,12 +244,15 @@ class TrainingPlugin(WechatyPlugin):
             for i in range(7):
                 reply = self.yuan.submit_API(prompt, trun="”")
                 #reply = self.zeus.get_response(prompt)
-                #print(prompt)
                 if not reply or reply == "somethingwentwrongwithyuanservice" or reply == "请求异常，请重试":
                     self.logger.warning(f'generation failed {str(i + 1)} times.')
                     self.logger.info(prompt)
                     continue
-                if len(reply) <= 3 or reply[:-2] not in dialog:
+                if len(self.training[talker.contact_id]["log"]) <= 12:
+                    repeat = self.repeat_check([f"你说：“{reply}”", key] for key in self.training[talker.contact_id]["log"])
+                else:
+                    repeat = self.repeat_check([f"你说：“{reply}”", key] for key in self.training[talker.contact_id]["log"][-12:])
+                if repeat < 2:
                     break
                 self.logger.warning(f'repeat generation:{reply}')
                 self.logger.info(prompt)
@@ -246,10 +264,6 @@ class TrainingPlugin(WechatyPlugin):
                 return
 
             await talker.say(reply)
-            if len(reply) <= 3 or reply[:-2] not in dialog:
-                self.training[talker.contact_id]["log"].append(f"你说：“{reply}”")
-            else:
-                self.training[talker.contact_id]["log"] = self.training[talker.contact_id]["log"][0] + self.training[talker.contact_id]["log"][-1]
             self.training[talker.contact_id]["turn"] += 1
 
             intent, conf = self.intent.predict(reply)
@@ -258,12 +272,12 @@ class TrainingPlugin(WechatyPlugin):
                 self.training[talker.contact_id]['log'].append(f'测试人员：{talker.name} 通过测试，AI角色最终情绪：{intent}')
                 self.logger.info(f'测试人员：{talker.name} 通过测试，详情已记录.TrainingPlugin文件夹')
                 await self.stop_train(talker)
-            elif intent == 'praise':
+            elif intent in ['praise', 'praise_bye']:
                 await talker.say(f"恭喜您，完美应付此场景！对话轮次：{self.training[talker.contact_id]['turn']}")
                 self.training[talker.contact_id]['log'].append(f'测试人员：{talker.name} 完美应付此场景！AI角色最终情绪：{intent}')
                 self.logger.info(f'测试人员：{talker.name} 完美通过测试，详情已记录于.TrainingPlugin文件夹')
                 await self.stop_train(talker)
-            elif intent in ['angry', 'provocate', 'complain', 'quarrel']:
+            elif intent in ['angry', 'provocate', 'complain', 'quarrel', 'sayno']:
                 await talker.say(f"侦测到虚拟角色情绪为{intent}，本次挑战失败，对话轮次：{self.training[talker.contact_id]['turn']}")
                 self.training[talker.contact_id]['log'].append(f'侦测到虚拟角色情绪为{intent}，本次挑战失败，测试人员：{talker.name}')
                 self.logger.info(f'侦测到虚拟角色情绪为{intent}，本次挑战失败，测试人员：{talker.name}，详情已记录于.TrainingPlugin文件夹')
@@ -295,7 +309,7 @@ class TrainingPlugin(WechatyPlugin):
         inform the testers of the results,
         and record the test information as a txt file
         """
-        date = datetime.now().strftime('%Y/%m/%d-%H:%M')
+        date = datetime.now().strftime('%Y%m%d%H%M')
         if self.training[talker.contact_id]['course'] in self.record:
             self.record[self.training[talker.contact_id]['course']].append((self.training[talker.contact_id]['turn'], talker.name))
         else:
@@ -311,7 +325,7 @@ class TrainingPlugin(WechatyPlugin):
         if record > 10:
             await talker.say(f"本次测试成绩超过本场景周期排名内{str(100-record*100//len(self.record[self.training[talker.contact_id]['course']]))}%的用户，再接再励哦~")
 
-        with open(".TrainingPlugin/" + date + talker.name + ".txt", 'a', encoding='utf-8') as f:
+        with open(os.path.join(self.record_url, date + talker.name + ".txt"), 'w', encoding='utf-8') as f:
             f.write(f'测试时间：{date}'+ '\n')
             f.write(f'测试人：{talker.name}'+ '\n')
             f.write(f"组织：{self.training[talker.contact_id]['group']}" + '\n')

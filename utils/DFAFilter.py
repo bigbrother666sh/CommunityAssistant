@@ -42,7 +42,6 @@ class DFAFilter:
         for i in range(len(chars)):
             if chars[i] in level:
                 level = level[chars[i]]
-
             else:
                 if not isinstance(level, dict):
                     break
