@@ -276,7 +276,7 @@ class TrainingPlugin(WechatyPlugin):
                 self.training[talker.contact_id]['log'].append(f'测试人员：{talker.name} 完美应付此场景！AI角色最终情绪：{intent}')
                 self.logger.info(f'测试人员：{talker.name} 完美通过测试，详情已记录于.TrainingPlugin文件夹')
                 await self.stop_train(talker)
-            elif intent in ['angry', 'provocate', 'complain', 'quarrel', 'sayno']:
+            elif intent in ['angry', 'complain', 'quarrel', 'sayno']:
                 await talker.say(f"侦测到虚拟角色情绪为{intent}，本次挑战失败，对话轮次：{self.training[talker.contact_id]['turn']}")
                 self.training[talker.contact_id]['log'].append(f'侦测到虚拟角色情绪为{intent}，本次挑战失败，测试人员：{talker.name}')
                 self.logger.info(f'侦测到虚拟角色情绪为{intent}，本次挑战失败，测试人员：{talker.name}，详情已记录于.TrainingPlugin文件夹')
