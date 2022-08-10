@@ -136,9 +136,7 @@ class TrainingPlugin(WechatyPlugin):
         """
         check the repeat message
         """
-        print(list)
         similatiry = self.sim(list)
-        print(similatiry)
         repeat_no = 0
         for item in similatiry:
             if item['similarity'] > 0.9:
