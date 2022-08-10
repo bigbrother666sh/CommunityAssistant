@@ -132,11 +132,13 @@ class TrainingPlugin(WechatyPlugin):
                                               'opening': table.cell_value(i, 3)}
         return courses
 
-    def repeat_check(self, list:[str]) -> int:
+    def repeat_check(self, list) -> int:
         """
         check the repeat message
         """
+        print(list)
         similatiry = self.sim(list)
+        print(similatiry)
         repeat_no = 0
         for item in similatiry:
             if item['similarity'] > 0.9:
@@ -248,9 +250,9 @@ class TrainingPlugin(WechatyPlugin):
                     self.logger.info(prompt)
                     continue
                 if len(self.training[talker.contact_id]["log"]) <= 12:
-                    repeat = self.repeat_check([f"你说：“{reply}”", key] for key in self.training[talker.contact_id]["log"])
+                    repeat = self.repeat_check([[f"你说：“{reply}”", key] for key in self.training[talker.contact_id]["log"]])
                 else:
-                    repeat = self.repeat_check([f"你说：“{reply}”", key] for key in self.training[talker.contact_id]["log"][-12:])
+                    repeat = self.repeat_check([[f"你说：“{reply}”", key] for key in self.training[talker.contact_id]["log"][-12:]])
                 if repeat < 2:
                     break
                 self.logger.warning(f'repeat generation:{reply}')
@@ -264,6 +266,7 @@ class TrainingPlugin(WechatyPlugin):
 
             await talker.say(reply)
             self.training[talker.contact_id]["turn"] += 1
+            self.training[talker.contact_id]['log'].append(f"你说：“{reply}”")
 
             intent, conf = self.intent.predict(reply)
             if intent in ['bye', 'greeting']:
@@ -332,6 +335,7 @@ class TrainingPlugin(WechatyPlugin):
             f.write(f"成绩（轮次）：{str(self.training[talker.contact_id]['turn'])}" + '\n')
             f.write(f"周期排名：{str(record)}" + '\n') if record != 0 else f.write(f"周期排名：---" + '\n')
             f.write("----------------------" + '\n')
+            f.write(f"AI说：“{self.courses[self.training[talker.contact_id]['course']]['opening']}”" + '\n')
             for turn in self.training[talker.contact_id]['log']:
                 if turn.startswith('你'):
                     f.write('AI'+turn[1:] + '\n')
