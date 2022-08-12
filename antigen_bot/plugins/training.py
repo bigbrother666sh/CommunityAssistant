@@ -105,7 +105,8 @@ class TrainingPlugin(WechatyPlugin):
         if msg.text() == 'help':
             await msg.say(f"{self.name} TrainingPlugin Director Code: \n"
                           "ding -- check heartbeat \n"
-                          "save -- save users status")
+                          "save -- save users status \n"
+                          "reload -- reload new course.xlsx --TrainingPlugin")
             return
         # 3.functions
         if msg.text() == 'save':
@@ -114,6 +115,18 @@ class TrainingPlugin(WechatyPlugin):
             with open(os.path.join(self.config_url, 'train_record.json'), 'w', encoding='utf-8') as f:
                 json.dump(self.record, f, ensure_ascii=False)
             await msg.say(f'save success -- {self.name} Trainingplugin')
+            return
+
+        if msg.text() == 'reload':
+            new_course =  self._load_course()
+            if new_course:
+                self.courses = new_course
+                await msg.say('new course.xlsx loaded_Training Plugin')
+            else:
+                await msg.say('new course.xlsx file wrong, nothing happened_Training Plugin')
+            return
+
+        await msg.say('send help to see what I can do--TrainingPlugin')
 
     def _load_course(self) -> dict:
         """load the course data"""

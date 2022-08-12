@@ -1,13 +1,12 @@
-'''
+"""
 简单校验文本是否直接含有keywords里面的关键词
 关键词数据来自：https://github.com/fwwdn/sensitive-stop-words
-'''
+"""
 import os
 import logging
 
 
 class SimpleFilter:
-    '''有穷状态机完成'''
 
     def __init__(self, logs: str = '.utils'):
         # 1. create the cache_dir
@@ -34,6 +33,7 @@ class SimpleFilter:
         message = message.lower()
         for keyword in self.keywords:
             if keyword in message:
+                self.logger.info(f"文本：{message}'，检测到敏感词：{keyword}")
                 return keyword
         return None
 
