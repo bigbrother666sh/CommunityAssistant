@@ -89,7 +89,7 @@ class QunAssistantPlugin(WechatyPlugin):
                          topP=0.9,
                          frequencyPenalty=1.2, )
         self.room_open_seq = {key: {} for key in self.room_dict}
-        self.docfaq = DocFAQ(skill_id='1211404', terminal='awada')
+        self.docfaq = DocFAQ(skill_id='1225240', terminal='awada')
         self.logger.info(f'UNIT DocFAQ loaded, skill_id: {self.docfaq.skill_id}, terminal: {self.docfaq.terminal}')
         self.logger.info('QunAssistantPlugin init success')
 
