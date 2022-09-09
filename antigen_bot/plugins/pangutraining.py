@@ -177,7 +177,7 @@ class PanGuTrainingPlugin(WechatyPlugin):
                 self.logger.info('intent: continuetosay, just pass')
                 return
 
-            if intent in ['impatient', 'bye', 'badreply', 'angry', 'quarrel']:
+            if intent in ['impatient', 'bye', 'badreply', 'angry', 'quarrel'] and conf > 0.8:
                 await talker.say(f"侦测到您未合理控制谈话情绪，本次挑战失败，对话轮次：{self.training[talker.contact_id]['turn']}")
                 self.training[talker.contact_id]['log'].append(f'测试人员：{talker.name} 因未合理控制情绪挑战失败，情绪侦测：{intent}')
                 self.logger.info(f'测试人员：{talker.name} 因未合理控制情绪挑战失败，情绪侦测：{intent}')
