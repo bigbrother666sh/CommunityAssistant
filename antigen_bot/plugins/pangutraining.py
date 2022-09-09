@@ -180,7 +180,7 @@ class PanGuTrainingPlugin(WechatyPlugin):
             if intent in ['impatient', 'bye', 'badreply', 'angry', 'quarrel']:
                 await talker.say(f"侦测到您未合理控制谈话情绪，本次挑战失败，对话轮次：{self.training[talker.contact_id]['turn']}")
                 self.training[talker.contact_id]['log'].append(f'测试人员：{talker.name} 因未合理控制情绪挑战失败，情绪侦测：{intent}')
-                self.logger.info(f'测试人员：{talker.name} 因未合理控制情绪挑战失败')
+                self.logger.info(f'测试人员：{talker.name} 因未合理控制情绪挑战失败，情绪侦测：{intent}')
                 await self.stop_train(talker)
                 return
 
@@ -257,7 +257,6 @@ class PanGuTrainingPlugin(WechatyPlugin):
         with open(os.path.join(self.record_url, date + talker.name + ".txt"), 'w', encoding='utf-8') as f:
             f.write(f'测试时间：{date}' + '\n')
             f.write(f'测试人：{talker.name}' + '\n')
-            f.write(f"组织：{self.training[talker.contact_id]['group']}" + '\n')
             f.write(f"测试情景：{self.training[talker.contact_id]['course']}" + '\n')
             f.write(f"成绩（轮次）：{str(self.training[talker.contact_id]['turn'])}" + '\n')
             f.write("----------------------" + '\n')
